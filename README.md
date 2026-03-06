@@ -11,7 +11,7 @@ Nope it's another one of the Basic one hehe used Gemini to speed up the process,
 * **Frontend:** HTML5, JavaScript (ES6+), Tailwind CSS
 * **Database:** Local JSON File System
 
-How to Run Locally
+## How to Run Locally
 **1.** Clone the repository
 **2.** Install dependencies
 **3.** Start the application
