@@ -13,6 +13,6 @@ Nope it's another one of the Basic one hehe used Gemini to speed up the process,
 
 ## How to Run Locally
 **1.** Clone the repository
-**2.** Install dependencies
-**3.** Start the application
-**4.** Build the executable
+**2.** Install dependencies: `npm install`
+**3.** Start the application: `npm start`
+**4.** Build the executable: `npx electron-packager . Smart-Notes --platform=win32 --arch=x64 --overwrite`
