@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Transparent body so we can have custom rounded corners and shadows */
+        body {
+            background-color: transparent;
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+            padding: 10px;
+        }
+
+        .notif-box {
+            background-color: #0A0A0A;
+            border: 1px solid #333;
+            border-radius: 12px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: 100%;
+        }
+
+        .pulse-red {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <audio id="audio-timer" src="../timer.mp3" loop></audio>
+    <audio id="audio-chime" src="chime.mp3"></audio>
+    <div class="notif-box relative">
+        <div class="bg-[#111] px-4 py-2 border-b border-[#222] flex items-center gap-2">
+            <i id="notif-icon" class="fa-solid fa-bell text-[#E5E5E5] text-[12px]"></i>
+            <span class="text-[#E5E5E5] text-[11px] font-bold tracking-[0.2em]">SMART-NOTES</span>
+        </div>
+
+        <div class="p-4 flex-1 flex flex-col justify-center">
+            <h4 id="notif-title" class="text-white font-bold text-[15px] mb-1">Time's Up!</h4>
+            <p id="notif-desc" class="text-[#888] text-[13px] leading-relaxed">Your Pomodoro session is complete.</p>
+        </div>
+
+        <div class="flex border-t border-[#222] bg-[#050505]">
+            <button onclick="sendAction('snooze')"
+                class="flex-1 py-2.5 text-[#888] text-[12px] font-semibold hover:bg-[#111] hover:text-white transition border-r border-[#222]">
+                <i class="fa-solid fa-bed mr-1"></i> Snooze 5m
+            </button>
+            <button onclick="sendAction('stop')"
+                class="flex-1 py-2.5 text-[#DC2626] text-[12px] font-bold hover:bg-[#DC2626] hover:text-white transition pulse-red">
+                <i class="fa-solid fa-stop mr-1"></i> Stop
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+
+        // Listen for data from the main process
+        ipcRenderer.on('set-data', (event, data) => {
+            document.getElementById('notif-title').innerText = data.title;
+            document.getElementById('notif-desc').innerText = data.desc;
+
+            const timerAudio = document.getElementById('audio-timer');
+            const chimeAudio = document.getElementById('audio-chime');
+
+            // Reset audio
+            timerAudio.pause(); timerAudio.currentTime = 0;
+            chimeAudio.pause(); chimeAudio.currentTime = 0;
+
+            if (data.type === 'timer') {
+                document.getElementById('notif-icon').className = "fa-solid fa-stopwatch text-[#FFC61E] text-[12px]";
+                timerAudio.play().catch(e => console.log(e)); // Plays and loops timer.mp3
+            } else {
+                document.getElementById('notif-icon').className = "fa-solid fa-thumbtack text-[#3B85FF] text-[12px]";
+                chimeAudio.play().catch(e => console.log(e)); // Plays chime once
+            }
+        });
+
+        // Send action back to main app
+        function sendAction(action) {
+            document.getElementById('audio-timer').pause();
+            document.getElementById('audio-chime').pause();
+            ipcRenderer.send('notification-action', action);
+        }
+    </script>
+</body>
+
+</html>

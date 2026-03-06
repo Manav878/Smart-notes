@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vault | Smart-Notes</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #050505;
+            color: white;
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.5s cubic-bezier(0.25, 1, 0.5, 1), transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+            user-select: none;
+        }
+
+        body.page-loaded {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        body.page-exit {
+            opacity: 0;
+            transform: translateY(-30px);
+        }
+
+        * {
+            outline: none !important;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #222;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+
+        @keyframes popIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.95) translateY(15px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        @keyframes popOut {
+            0% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(0.95) translateY(10px);
+            }
+        }
+
+        .animate-pop {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .animate-pop-out {
+            animation: popOut 0.2s cubic-bezier(0.6, -0.28, 0.735, 0.045) forwards !important;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .line-clamp-3 {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            background: #111;
+            border: 1px solid #333;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            border-radius: 8px;
+            overflow: hidden;
+            min-width: 140px;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+            animation: popIn 0.2s ease forwards;
+        }
+
+        .dropdown-item {
+            color: #E5E5E5;
+            padding: 10px 16px;
+            display: block;
+            width: 100%;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        .dropdown-item:hover {
+            background-color: #222;
+            color: white;
+        }
+    </style>
+</head>
+
+<body class="flex h-screen w-screen relative overflow-hidden bg-[#050505]" id="app-body">
+
+    <div id="note-action-modal"
+        class="hidden fixed inset-0 bg-black/80 z-[3000] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-[#0A0A0A] border border-[#222] rounded-xl p-8 w-[400px] shadow-2xl animate-pop flex flex-col">
+            <div class="flex justify-between items-start mb-6 border-b border-[#222] pb-4">
+                <div>
+                    <h3 id="modal-note-title" class="text-white text-[18px] font-bold mb-1">Note Title</h3>
+                    <p id="modal-note-date" class="text-[#666] text-[11px] font-mono">Date</p>
+                </div>
+                <button onclick="closeModal('note-action-modal')" class="text-[#666] hover:text-white transition"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-[#888] text-[13px] mb-8 leading-relaxed">What would you like to do with this document?</p>
+            <div id="modal-actions" class="flex flex-col gap-3"></div>
+        </div>
+    </div>
+
+    <div id="burn-warning-modal"
+        class="hidden fixed inset-0 bg-black/80 z-[4000] flex items-center justify-center backdrop-blur-sm">
+        <div
+            class="bg-[#1A1A1A] border border-[#DC2626] rounded-xl p-6 w-80 shadow-[0_0_30px_rgba(220,38,38,0.2)] animate-pop flex flex-col">
+            <div class="flex items-center gap-3 mb-2 text-[#DC2626]">
+                <i class="fa-solid fa-fire text-lg"></i>
+                <h3 class="text-white text-[15px] font-bold">Burn Note?</h3>
+            </div>
+            <p class="text-[#888] text-[13px] mb-6 leading-relaxed">This action is irreversible. The note will be
+                permanently deleted from your local storage.</p>
+            <div class="flex gap-2">
+                <button onclick="confirmBurn()"
+                    class="flex-1 bg-[#DC2626] text-white font-medium py-2 rounded-md text-[13px] hover:bg-[#B91C1C] transition">Burn</button>
+                <button onclick="closeModal('burn-warning-modal')"
+                    class="flex-1 border border-[#444] hover:bg-[#222] text-white font-medium py-2 rounded-md text-[13px] transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <aside class="w-[260px] h-full border-r border-[#222] flex flex-col bg-[#050505] z-10 flex-shrink-0">
+        <div class="h-[72px] flex items-center px-6 cursor-pointer group border-b border-transparent"
+            onclick="navigateToPage('index.html')">
+            <i
+                class="fa-solid fa-arrow-left text-[#888] text-sm group-hover:text-white transition transform group-hover:-translate-x-1"></i>
+            <span class="ml-4 font-bold text-white tracking-[0.15em] text-[14px]">SMART-NOTES</span>
+        </div>
+
+        <nav class="flex flex-col gap-1 px-3 mt-6">
+            <button id="nav-all" onclick="setFilter('all')"
+                class="nav-btn flex items-center gap-4 px-3 py-2 bg-[#1A1A1A] text-[#E5E5E5] rounded-md transition text-[13px] font-medium border border-[#222]">
+                <i class="fa-regular fa-file-lines w-4 text-center text-[14px]"></i> All Notes
+            </button>
+            <button id="nav-pinned" onclick="setFilter('pinned')"
+                class="nav-btn flex items-center gap-4 px-3 py-2 text-[#888] hover:text-[#E5E5E5] hover:bg-[#111] rounded-md transition text-[13px] font-medium border border-transparent">
+                <i class="fa-solid fa-thumbtack w-4 text-center text-[12px] -rotate-45"></i> Pinned
+            </button>
+            <button id="nav-bin" onclick="setFilter('bin')"
+                class="nav-btn flex items-center gap-4 px-3 py-2 text-[#888] hover:text-[#E5E5E5] hover:bg-[#111] rounded-md transition text-[13px] font-medium border border-transparent">
+                <i class="fa-solid fa-trash-can w-4 text-center text-[13px]"></i> Bin
+            </button>
+        </nav>
+
+        <div class="mt-6 px-3">
+            <span class="text-[#666] text-[10px] font-bold tracking-[0.2em] uppercase ml-3 mb-2 block">Tags</span>
+            <div class="flex flex-col gap-1">
+                <button id="nav-tag-code" onclick="setFilter('tag-code')"
+                    class="nav-btn flex items-center gap-4 px-3 py-2 text-[#888] hover:text-[#E5E5E5] hover:bg-[#111] rounded-md transition text-[13px] font-medium border border-transparent">
+                    <i class="fa-solid fa-code w-4 text-center text-[#FFC61E]"></i> Code
+                </button>
+                <button id="nav-tag-gaming" onclick="setFilter('tag-gaming')"
+                    class="nav-btn flex items-center gap-4 px-3 py-2 text-[#888] hover:text-[#E5E5E5] hover:bg-[#111] rounded-md transition text-[13px] font-medium border border-transparent">
+                    <i class="fa-solid fa-gamepad w-4 text-center text-[#3B85FF]"></i> Gaming
+                </button>
+                <button id="nav-tag-study" onclick="setFilter('tag-study')"
+                    class="nav-btn flex items-center gap-4 px-3 py-2 text-[#888] hover:text-[#E5E5E5] hover:bg-[#111] rounded-md transition text-[13px] font-medium border border-transparent">
+                    <i class="fa-solid fa-book-open w-4 text-center text-[#B677FF]"></i> Study
+                </button>
+                <button id="nav-tag-project" onclick="setFilter('tag-project')"
+                    class="nav-btn flex items-center gap-4 px-3 py-2 text-[#888] hover:text-[#E5E5E5] hover:bg-[#111] rounded-md transition text-[13px] font-medium border border-transparent">
+                    <i class="fa-solid fa-diagram-project w-4 text-center text-[#FF3B3B]"></i> Project
+                </button>
+            </div>
+        </div>
+
+        <div class="mt-auto p-6 flex flex-col gap-3 border-t border-[#111]">
+            <div class="flex items-center gap-3 mb-1">
+                <div class="w-2 h-2 rounded-full bg-[#E5E5E5] shadow-[0_0_8px_#E5E5E5] animate-pulse"></div>
+                <span class="text-[#E5E5E5] text-[12px] font-bold tracking-wider uppercase">System Online</span>
+            </div>
+            <div class="flex justify-between text-[10px] text-[#666] font-mono">
+                <span>SHARED BRAIN DB</span>
+                <span id="storage-used">SYNCED</span>
+            </div>
+            <div class="w-full h-1 bg-[#1A1A1A] rounded-full overflow-hidden">
+                <div id="storage-bar"
+                    class="h-full bg-white w-[100%] transition-all duration-500 shadow-[0_0_5px_white]"></div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col h-full bg-[#050505]">
+        <header
+            class="h-[72px] border-b border-[#222] flex items-center justify-between px-8 flex-shrink-0 bg-[#050505]">
+            <div class="flex-1 max-w-2xl relative">
+                <i
+                    class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-[#666] text-[13px]"></i>
+                <input type="text" id="search-input" oninput="handleSearch(event)"
+                    placeholder="Search note names or content..."
+                    class="w-full bg-[#111] border border-[#222] text-[#E5E5E5] pl-10 pr-4 py-2 rounded-md text-[13px] focus:border-[#444] focus:bg-[#161616] outline-none transition-colors placeholder-[#444]">
+            </div>
+
+            <div class="flex items-center gap-6 ml-6">
+                <div class="relative dropdown-container">
+                    <div class="text-[#888] text-[13px] flex items-center gap-2 cursor-pointer hover:text-[#E5E5E5] transition"
+                        onclick="toggleSortMenu()">
+                        Sort By: <span id="current-sort-label" class="text-[#E5E5E5]">Newest</span> <i
+                            class="fa-solid fa-chevron-down text-[10px] ml-1"></i>
+                    </div>
+                    <div id="sort-menu" class="dropdown-menu">
+                        <button class="dropdown-item" onclick="setSort('date-desc')">Date (Newest)</button>
+                        <button class="dropdown-item" onclick="setSort('date-asc')">Date (Oldest)</button>
+                        <button class="dropdown-item border-t border-[#222]" onclick="setSort('name-asc')">Name
+                            (A-Z)</button>
+                    </div>
+                </div>
+
+                <div class="flex items-center border border-[#222] rounded-md overflow-hidden">
+                    <button id="layout-grid-btn" onclick="setLayout('grid')"
+                        class="w-10 h-8 bg-[#1A1A1A] text-[#E5E5E5] flex items-center justify-center transition">
+                        <i class="fa-solid fa-border-all text-[13px]"></i>
+                    </button>
+                    <button id="layout-list-btn" onclick="setLayout('list')"
+                        class="w-10 h-8 bg-[#050505] text-[#666] hover:text-[#E5E5E5] hover:bg-[#111] border-l border-[#222] flex items-center justify-center transition">
+                        <i class="fa-solid fa-list text-[13px]"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-y-auto p-8 relative">
+            <div id="empty-state" class="hidden absolute inset-0 flex flex-col items-center justify-center text-center">
+                <i class="fa-regular fa-folder-open text-4xl text-[#333] mb-4"></i>
+                <h3 class="text-[#888] font-medium text-sm">No notes found</h3>
+                <p class="text-[#555] text-xs mt-1">Your vault or current filter is empty.</p>
+            </div>
+
+            <div id="notes-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+        </div>
+    </main>
+
+    <script>
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+
+        // Shared Brain Directory Setup
+        const dataFolder = path.join(os.homedir(), 'Documents', 'Sakura_SmartNotes');
+        if (!fs.existsSync(dataFolder)) fs.mkdirSync(dataFolder, { recursive: true });
+
+        const STORE = {
+            get: (key, def) => {
+                const filePath = path.join(dataFolder, `${key}.json`);
+                if (fs.existsSync(filePath)) {
+                    try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (e) { return def; }
+                } return def;
+            },
+            set: (key, val) => {
+                const filePath = path.join(dataFolder, `${key}.json`);
+                fs.writeFileSync(filePath, JSON.stringify(val, null, 2), 'utf8');
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => { setTimeout(() => { document.body.classList.add('page-loaded'); }, 50); initVault(); });
+        function navigateToPage(url) { document.body.classList.remove('page-loaded'); document.body.classList.add('page-exit'); setTimeout(() => { window.location.href = url; }, 500); }
+
+        function toggleSortMenu() { document.getElementById('sort-menu').classList.toggle('show'); }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.dropdown-container')) { document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show')); }
+            if (e.target === document.getElementById('note-action-modal')) closeModal('note-action-modal');
+            if (e.target === document.getElementById('burn-warning-modal')) closeModal('burn-warning-modal');
+        });
+
+        window.closeModal = (id) => { const el = document.getElementById(id); const animElem = el.querySelector('.animate-pop'); if (animElem) { animElem.classList.remove('animate-pop'); animElem.classList.add('animate-pop-out'); setTimeout(() => { el.classList.add('hidden'); animElem.classList.remove('animate-pop-out'); animElem.classList.add('animate-pop'); }, 200); } else { el.classList.add('hidden'); } };
+        window.openModal = (id) => { const el = document.getElementById(id); el.classList.remove('hidden'); };
+
+        const TAG_MAP = {
+            'code': { color: '#FFC61E', icon: 'fa-code' },
+            'gaming': { color: '#3B85FF', icon: 'fa-gamepad' },
+            'study': { color: '#B677FF', icon: 'fa-book-open' },
+            'project': { color: '#FF3B3B', icon: 'fa-diagram-project' }
+        };
+
+        // LOAD FROM SHARED BRAIN
+        let notes = STORE.get('sn_vault_notes', []);
+
+        let currentFilter = 'all';
+        let currentSort = 'date-desc';
+        let currentLayout = 'grid';
+        let searchQuery = '';
+        let activeNoteId = null;
+        let noteToBurn = null;
+
+        function initVault() { render(); }
+        function saveNotes() { STORE.set('sn_vault_notes', notes); render(); }
+
+        function setFilter(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-[#1A1A1A]', 'text-[#E5E5E5]', 'border-[#222]');
+                btn.classList.add('text-[#888]', 'border-transparent');
+            });
+            const activeBtn = document.getElementById(`nav-${filter}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('text-[#888]', 'border-transparent');
+                activeBtn.classList.add('bg-[#1A1A1A]', 'text-[#E5E5E5]', 'border-[#222]');
+            }
+            render();
+        }
+
+        function setSort(sortType) {
+            currentSort = sortType;
+            const labels = { 'date-desc': 'Newest', 'date-asc': 'Oldest', 'name-asc': 'Name (A-Z)' };
+            document.getElementById('current-sort-label').innerText = labels[sortType];
+            document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+            render();
+        }
+
+        function setLayout(layout) {
+            currentLayout = layout;
+            const gridBtn = document.getElementById('layout-grid-btn');
+            const listBtn = document.getElementById('layout-list-btn');
+            if (layout === 'grid') {
+                gridBtn.classList.replace('bg-[#050505]', 'bg-[#1A1A1A]'); gridBtn.classList.replace('text-[#666]', 'text-[#E5E5E5]');
+                listBtn.classList.replace('bg-[#1A1A1A]', 'bg-[#050505]'); listBtn.classList.replace('text-[#E5E5E5]', 'text-[#666]');
+            } else {
+                listBtn.classList.replace('bg-[#050505]', 'bg-[#1A1A1A]'); listBtn.classList.replace('text-[#666]', 'text-[#E5E5E5]');
+                gridBtn.classList.replace('bg-[#1A1A1A]', 'bg-[#050505]'); gridBtn.classList.replace('text-[#E5E5E5]', 'text-[#666]');
+            }
+            render();
+        }
+
+        function handleSearch(e) { searchQuery = e.target.value.toLowerCase(); render(); }
+        function togglePin(id) { const note = notes.find(n => n.id === id); if (note && !note.trashed) note.pinned = !note.pinned; saveNotes(); }
+        function triggerBinAction(id) { const note = notes.find(n => n.id === id); if (!note) return; if (!note.trashed) { note.trashed = true; note.pinned = false; } saveNotes(); }
+        function restoreNote(id) { const note = notes.find(n => n.id === id); if (note) note.trashed = false; closeModal('note-action-modal'); saveNotes(); }
+        function triggerBurnWarning(id) { noteToBurn = id; closeModal('note-action-modal'); setTimeout(() => openModal('burn-warning-modal'), 200); }
+        function confirmBurn() { if (noteToBurn !== null) { notes = notes.filter(n => n.id !== noteToBurn); saveNotes(); noteToBurn = null; } closeModal('burn-warning-modal'); }
+
+        function triggerNoteAction(id) {
+            const note = notes.find(n => n.id === id);
+            if (!note) return;
+            activeNoteId = id;
+
+            document.getElementById('modal-note-title').innerText = note.title;
+            document.getElementById('modal-note-date').innerText = "Last edited: " + note.dateStr;
+            const actionsContainer = document.getElementById('modal-actions');
+
+            if (note.trashed) {
+                actionsContainer.innerHTML = `
+                    <button onclick="restoreNote(${id})" class="w-full bg-[#E5E5E5] text-black font-semibold py-2.5 rounded-md text-[13px] hover:bg-white transition flex items-center justify-center gap-2"><i class="fa-solid fa-arrow-rotate-left"></i> Restore Document</button>
+                    <button onclick="triggerBurnWarning(${id})" class="w-full bg-[#111] border border-[#333] text-[#DC2626] font-medium py-2.5 rounded-md text-[13px] hover:bg-[#1A1A1A] hover:border-[#DC2626] transition flex items-center justify-center gap-2"><i class="fa-solid fa-fire"></i> Delete Permanently</button>
+                `;
+            } else {
+                actionsContainer.innerHTML = `
+                    <button onclick="navigateToPage('note.html')" class="w-full bg-[#E5E5E5] text-black font-semibold py-2.5 rounded-md text-[13px] hover:bg-white transition flex items-center justify-center gap-2"><i class="fa-solid fa-pen-to-square"></i> Open in Workspace</button>
+                    <button onclick="triggerBinAction(${id}); closeModal('note-action-modal')" class="w-full bg-[#111] border border-[#333] text-[#DC2626] font-medium py-2.5 rounded-md text-[13px] hover:bg-[#1A1A1A] hover:border-[#DC2626] transition flex items-center justify-center gap-2"><i class="fa-solid fa-trash-can"></i> Move to Bin</button>
+                `;
+            }
+            openModal('note-action-modal');
+        }
+
+        function render() {
+            const container = document.getElementById('notes-container');
+            const emptyState = document.getElementById('empty-state');
+
+            let filteredNotes = notes.filter(n => {
+                if (currentFilter === 'all') return !n.trashed;
+                if (currentFilter === 'pinned') return n.pinned && !n.trashed;
+                if (currentFilter === 'bin') return n.trashed;
+                if (currentFilter.startsWith('tag-')) {
+                    const reqTag = currentFilter.replace('tag-', '');
+                    return !n.trashed && n.tags && n.tags.includes(reqTag);
+                }
+                return true;
+            });
+
+            if (searchQuery) { filteredNotes = filteredNotes.filter(n => n.title.toLowerCase().includes(searchQuery) || n.content.toLowerCase().includes(searchQuery)); }
+
+            filteredNotes.sort((a, b) => {
+                if (currentSort === 'date-desc') return b.timestamp - a.timestamp;
+                if (currentSort === 'date-asc') return a.timestamp - b.timestamp;
+                if (currentSort === 'name-asc') return a.title.localeCompare(b.title);
+            });
+
+            if (currentFilter === 'all') {
+                const pinned = filteredNotes.filter(n => n.pinned);
+                const unpinned = filteredNotes.filter(n => !n.pinned);
+                filteredNotes = [...pinned, ...unpinned];
+            }
+
+            if (currentLayout === 'grid') container.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6";
+            else container.className = "flex flex-col gap-3";
+
+            container.innerHTML = '';
+
+            if (filteredNotes.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                filteredNotes.forEach(note => {
+                    if (currentLayout === 'grid') container.innerHTML += generateGridCard(note);
+                    else container.innerHTML += generateListRow(note);
+                });
+            }
+        }
+
+        function generateGridCard(note) {
+            const pinIcon = note.pinned ? 'text-[#E5E5E5]' : 'text-[#888] hover:text-white';
+            const trashIcon = note.trashed ? 'fa-fire hover:text-[#DC2626]' : 'fa-trash-can hover:text-[#DC2626]';
+            const tagsHTML = (note.tags || []).map(t => {
+                const config = TAG_MAP[t];
+                if (!config) return '';
+                return `<i class="fa-solid ${config.icon} text-[11px]" style="color: ${config.color}"></i>`;
+            }).join('<span class="w-1.5"></span>');
+
+            return `
+                <div class="flex flex-col rounded-xl border border-[#222] bg-[#0A0A0A] overflow-hidden group cursor-pointer hover:border-[#444] hover:-translate-y-1 transition-all duration-300 relative" onclick="triggerNoteAction(${note.id})">
+                    <div class="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                        ${currentFilter !== 'bin' ? `<button class="w-7 h-7 rounded bg-[#111]/80 border border-[#333] ${pinIcon} hover:border-[#555] flex items-center justify-center backdrop-blur-sm transition" onclick="event.stopPropagation(); togglePin(${note.id})"><i class="fa-solid fa-thumbtack text-[11px] -rotate-45"></i></button>` : ''}
+                        <button class="w-7 h-7 rounded bg-[#111]/80 border border-[#333] text-[#888] hover:border-[#DC2626] flex items-center justify-center backdrop-blur-sm transition" onclick="event.stopPropagation(); ${note.trashed ? `triggerBurnWarning(${note.id})` : `triggerBinAction(${note.id})`}"><i class="fa-solid ${trashIcon} text-[11px] text-[#DC2626]"></i></button>
+                    </div>
+                    ${note.pinned ? '<div class="absolute top-3 right-3 w-2 h-2 rounded-full bg-white z-10 group-hover:hidden"></div>' : ''}
+
+                    <div class="h-48 bg-[#161616] p-5 flex flex-col gap-3 relative overflow-hidden border-b border-[#222]">
+                        <div class="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-[#161616] to-transparent z-10"></div>
+                        <h4 class="text-[#66B6FF] font-bold text-[16px] leading-tight w-[85%]">${note.title}</h4>
+                        <p class="text-[#666] text-[12px] leading-relaxed line-clamp-3">${note.content}</p>
+                    </div>
+
+                    <div class="p-4 bg-[#0A0A0A] flex flex-col gap-1.5 z-10 relative">
+                        <h3 class="text-[#E5E5E5] font-semibold text-[14px] truncate pr-4">${note.title}</h3>
+                        <div class="flex justify-between items-center">
+                            <span class="text-[#666] text-[11px] font-mono">${note.dateStr}</span>
+                            <div class="flex items-center">${tagsHTML}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function generateListRow(note) {
+            const pinIcon = note.pinned ? 'text-[#E5E5E5]' : 'text-[#666] hover:text-white';
+            const trashIcon = note.trashed ? 'fa-fire hover:text-[#DC2626]' : 'fa-trash-can hover:text-[#DC2626]';
+            const tagsHTML = (note.tags || []).map(t => {
+                const config = TAG_MAP[t];
+                if (!config) return '';
+                return `<i class="fa-solid ${config.icon} text-[10px]" style="color: ${config.color}"></i>`;
+            }).join('<span class="w-2"></span>');
+
+            return `
+                <div class="flex items-center justify-between p-4 bg-[#0A0A0A] border border-[#222] rounded-lg hover:border-[#444] transition-all cursor-pointer group" onclick="triggerNoteAction(${note.id})">
+                    <div class="flex items-center gap-4 flex-1 min-w-0">
+                        <i class="fa-regular fa-file-lines text-[#444] text-lg group-hover:text-[#E5E5E5] transition-colors"></i>
+                        <div class="flex flex-col flex-1 min-w-0 pr-6">
+                            <span class="text-[#E5E5E5] font-semibold text-[14px] truncate flex items-center gap-2">
+                                ${note.pinned ? '<i class="fa-solid fa-thumbtack text-[10px] -rotate-45 text-white"></i> ' : ''} 
+                                ${note.title}
+                            </span>
+                            <span class="text-[#666] text-[12px] truncate">${note.content}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-6 flex-shrink-0">
+                        <div class="flex items-center">${tagsHTML}</div>
+                        <span class="text-[#666] text-[11px] font-mono w-24 text-right">${note.dateStr}</span>
+                        
+                        <div class="flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity w-12 justify-end">
+                            ${currentFilter !== 'bin' ? `<i class="fa-solid fa-thumbtack text-[12px] -rotate-45 ${pinIcon} transition" onclick="event.stopPropagation(); togglePin(${note.id})"></i>` : ''}
+                            <i class="fa-solid ${trashIcon} text-[12px] text-[#666] hover:text-[#DC2626] transition" onclick="event.stopPropagation(); ${note.trashed ? `triggerBurnWarning(${note.id})` : `triggerBinAction(${note.id})`}"></i>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+
+</html>

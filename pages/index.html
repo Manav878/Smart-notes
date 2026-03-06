@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart-Notes | Home</title>
+    <link href="https://fonts.googleapis.com/css2?family=Jersey+15&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0F0F0F;
+            color: white;
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.5s cubic-bezier(0.25, 1, 0.5, 1), transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        body.page-loaded {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        body.page-exit {
+            opacity: 0;
+            transform: translateY(-30px);
+        }
+
+        * {
+            outline: none !important;
+        }
+
+        .font-jersey {
+            font-family: 'Jersey 15', cursive !important;
+            letter-spacing: 1px;
+        }
+
+        .hero-text {
+            font-size: 200px;
+            line-height: 1;
+            font-family: 'Jersey 15', cursive;
+            text-shadow: 0 0 40px rgba(255, 255, 255, 0.1);
+        }
+
+        .logo-spiral {
+            animation: spin 20s linear infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body id="app-body" class="h-screen w-screen relative overflow-hidden bg-[#0F0F0F]">
+    <div id="home-screen"
+        class="w-full h-full flex flex-col items-center justify-center absolute top-0 left-0 transition-opacity duration-500 z-40">
+        <nav id="top-nav"
+            class="-translate-y-[150%] absolute top-6 left-0 right-0 flex justify-center transition-all duration-700 ease-in-out font-jersey">
+            <div
+                class="bg-[#1A1A1A] border-2 border-white/20 rounded-full p-1.5 flex space-x-2 shadow-lg shadow-white/5 text-lg">
+                <button id="nav-create-note"
+                    class="flex items-center gap-2 bg-[#0F0F0F] border border-white/30 hover:bg-white hover:text-black transition-all duration-300 rounded-full px-5 py-1.5 text-xl font-jersey">
+                    <i class="fa-solid fa-pen-to-square"></i> Create Note
+                </button>
+                <button id="nav-vault"
+                    class="flex items-center gap-2 bg-[#0F0F0F] border border-white/30 hover:bg-white hover:text-black transition-all duration-300 rounded-full px-5 py-1.5 text-xl font-jersey">
+                    <i class="fa-regular fa-folder-open"></i> Open Vault
+                </button>
+                <button id="nav-view-schedule"
+                    class="flex items-center gap-2 bg-[#0F0F0F] border border-white/30 hover:bg-white hover:text-black transition-all duration-300 rounded-full px-5 py-1.5 text-xl font-jersey">
+                    <i class="fa-regular fa-calendar"></i> View Schedule
+                </button>
+            </div>
+        </nav>
+        <main
+            class="text-center absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full flex flex-col items-center">
+            <div id="title-logo" class="transition-all duration-1000 ease-in-out flex flex-col items-center">
+                <h1 class="hero-text tracking-tighter mb-8 font-jersey">Smart-Notes</h1>
+                <div class="flex justify-center"><img src="../Design.png" alt="Spiral Logo"
+                        class="logo-spiral w-64 h-64 rounded-full"></div>
+            </div>
+            <div id="btn-container" class="mt-16 transition-all duration-700 ease-in-out">
+                <button id="start-btn"
+                    class="font-jersey border-2 border-white px-8 py-2 text-3xl hover:bg-white hover:text-black transition-all duration-300">ENTER
+                    DASHBOARD</button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+
+        const dataFolder = path.join(os.homedir(), 'Documents', 'Sakura_SmartNotes');
+        if (!fs.existsSync(dataFolder)) fs.mkdirSync(dataFolder, { recursive: true });
+
+        const STORE = {
+            get: (key, def) => {
+                const filePath = path.join(dataFolder, `${key}.json`);
+                if (fs.existsSync(filePath)) {
+                    try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (e) { return def; }
+                } return def;
+            },
+            set: (key, val) => {
+                const filePath = path.join(dataFolder, `${key}.json`);
+                fs.writeFileSync(filePath, JSON.stringify(val, null, 2), 'utf8');
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => { document.body.classList.add('page-loaded'); }, 50);
+            runAutoBurner();
+        });
+
+        function navigateToPage(url) {
+            document.body.classList.remove('page-loaded');
+            document.body.classList.add('page-exit');
+            setTimeout(() => { window.location.href = url; }, 500);
+        }
+
+        document.getElementById('start-btn').onclick = () => {
+            document.getElementById('btn-container').style.cssText = 'transform: translateY(100vh); opacity: 0; pointer-events: none;';
+            document.getElementById('title-logo').style.transform = 'translateY(15vh)';
+            document.getElementById('top-nav').classList.remove('-translate-y-[150%]');
+            document.getElementById('top-nav').classList.add('translate-y-0');
+        };
+
+        document.getElementById('nav-create-note').onclick = () => navigateToPage('note.html');
+        document.getElementById('nav-vault').onclick = () => navigateToPage('vault.html');
+        document.getElementById('nav-view-schedule').onclick = () => navigateToPage('schedule.html');
+
+        function runAutoBurner() {
+            const now = Date.now();
+            const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+
+            let vaultNotes = STORE.get('sn_vault_notes', []);
+            const origVaultLen = vaultNotes.length;
+            vaultNotes = vaultNotes.filter(note => (now - note.timestamp) < SEVEN_DAYS);
+            if (vaultNotes.length !== origVaultLen) STORE.set('sn_vault_notes', vaultNotes);
+
+            let events = STORE.get('sn_events', {});
+            let eventsChanged = false;
+            for (let dateKey in events) {
+                if (now - new Date(dateKey).getTime() > SEVEN_DAYS) { delete events[dateKey]; eventsChanged = true; }
+            }
+            if (eventsChanged) STORE.set('sn_events', events);
+
+            let stats = STORE.get('sn_stats', {});
+            let statsChanged = false;
+            for (let dateKey in stats) {
+                if (now - new Date(dateKey).getTime() > SEVEN_DAYS) { delete stats[dateKey]; statsChanged = true; }
+            }
+            if (statsChanged) STORE.set('sn_stats', stats);
+
+            let quickNoteTime = STORE.get('sn_quick_time', now);
+            if (now - quickNoteTime > SEVEN_DAYS) {
+                STORE.set('sn_quick', "");
+                STORE.set('sn_quick_time', now);
+            }
+            console.log("System Check: Old data purged from Shared Brain.");
+        }
+    </script>
+</body>
+
+</html>

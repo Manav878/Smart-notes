@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart-Notes | Workspace</title>
+    <link href="https://fonts.googleapis.com/css2?family=Jersey+15&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0F0F0F;
+            color: white;
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.5s cubic-bezier(0.25, 1, 0.5, 1), transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        body.page-loaded {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        body.page-exit {
+            opacity: 0;
+            transform: translateY(-30px);
+        }
+
+        * {
+            outline: none !important;
+        }
+
+        .editor-bg {
+            background-color: #0d0d0d;
+            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        #editor-screen {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100vh;
+            z-index: 50;
+        }
+
+        .ribbon {
+            background-color: #0F0F0F;
+            border-bottom: 1px solid #1E1E1E;
+            display: flex;
+            flex-direction: column;
+            z-index: 500;
+            user-select: none;
+        }
+
+        .toolbar-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            padding: 10px 24px;
+        }
+
+        .toolbar-row:first-child {
+            border-bottom: 1px solid #1E1E1E;
+        }
+
+        .separator {
+            width: 1px;
+            height: 20px;
+            background: #2A2A2A;
+            margin: 0 4px;
+        }
+
+        .toolbar-btn {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            color: #A6A6A6;
+            cursor: pointer;
+            background: transparent;
+            transition: all 0.15s ease;
+            font-size: 14px;
+        }
+
+        .toolbar-btn:hover {
+            background-color: #1A1A1A;
+            color: #FFF;
+        }
+
+        .toolbar-btn.active {
+            background-color: #262626;
+            color: #FFF;
+            border-color: #404040;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .dropdown-container {
+            position: relative;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            background: #1A1A1A;
+            border: 1px solid #333;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .custom-select-btn {
+            background-color: transparent;
+            border: 1px solid #333;
+            color: #E5E5E5;
+            padding: 0 12px;
+            border-radius: 8px;
+            height: 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-size: 13px;
+            gap: 8px;
+            transition: all 0.15s;
+        }
+
+        .custom-select-btn:hover {
+            background-color: #1A1A1A;
+            border-color: #444;
+        }
+
+        .font-list-menu,
+        .size-list-menu {
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+
+        .font-list-menu {
+            width: 180px;
+        }
+
+        .size-list-menu {
+            width: 70px;
+        }
+
+        .dropdown-menu button.dropdown-item {
+            color: #E5E5E5;
+            padding: 8px 12px;
+            display: block;
+            width: 100%;
+            border-radius: 4px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        .dropdown-menu button.dropdown-item:hover {
+            background-color: #2A2A2A;
+            color: white;
+        }
+
+        .color-picker-trigger {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            height: 32px;
+            padding: 0 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #888;
+            transition: 0.15s;
+        }
+
+        .color-picker-trigger:hover {
+            background-color: #1A1A1A;
+            color: #FFF;
+        }
+
+        .color-picker-trigger-text {
+            font-size: 13px;
+            font-weight: 400;
+            color: #888;
+        }
+
+        .color-grid-dropdown {
+            padding: 12px;
+            background: #161616;
+            border: 1px solid #333;
+            border-radius: 8px;
+        }
+
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 6px;
+        }
+
+        .color-box {
+            width: 26px;
+            height: 26px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: transform 0.1s, border 0.1s;
+        }
+
+        .color-box:hover {
+            transform: scale(1.15);
+        }
+
+        .cp-btn-none {
+            width: 100%;
+            padding: 8px;
+            background: #222;
+            border: 1px solid #444;
+            color: #A6A6A6;
+            font-size: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 12px;
+            transition: 0.15s;
+        }
+
+        .cp-btn-none:hover {
+            background: #333;
+            color: white;
+        }
+
+        #pages-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 0;
+            z-index: 10;
+            counter-reset: page-counter;
+            position: relative;
+        }
+
+        .page-wrapper {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 40px;
+            flex-shrink: 0;
+            counter-increment: page-counter;
+            z-index: 20;
+        }
+
+        .page-header-bar {
+            width: 21cm;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 4px 8px 4px;
+            color: #666;
+            font-size: 12px;
+            font-weight: 500;
+            user-select: none;
+        }
+
+        .page-header-bar::before {
+            content: "Page " counter(page-counter);
+            letter-spacing: 0.5px;
+        }
+
+        .word-page {
+            width: 21cm;
+            min-height: 29.7cm;
+            background-color: #262626;
+            color: white;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            padding: 50px;
+            font-size: 16px;
+            line-height: 1.6;
+            outline: none;
+            border-radius: 4px;
+            border: 1px solid #333;
+        }
+
+        .word-page ul {
+            list-style-type: disc !important;
+            margin-left: 1.5rem !important;
+        }
+
+        .word-page ol {
+            list-style-type: decimal !important;
+            margin-left: 1.5rem !important;
+        }
+
+        .word-page blockquote {
+            border-left: 4px solid #555;
+            padding-left: 14px;
+            color: #BBB;
+            margin: 12px 0;
+            font-style: italic;
+            background: rgba(255, 255, 255, 0.03);
+            padding-top: 8px;
+            padding-bottom: 8px;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .word-page pre {
+            background: #161616;
+            padding: 16px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            overflow-x: auto;
+            margin: 12px 0;
+            border: 1px solid #333;
+            color: #E5E5E5;
+        }
+
+        .word-page a {
+            color: #66B6FF;
+            text-decoration: underline;
+            cursor: pointer !important;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0A0A0A;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            20%,
+            60% {
+                transform: translateX(6px);
+            }
+
+            40%,
+            80% {
+                transform: translateX(-6px);
+            }
+        }
+
+        .shake-anim {
+            animation: shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
+            color: #d32f2f;
+        }
+
+        .btn-add-page {
+            background-color: transparent;
+            color: #A6A6A6;
+            font-size: 13px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+        }
+
+        .btn-add-page:hover {
+            background-color: #FFFFFF;
+            color: #000000;
+        }
+
+        .btn-add-page:active {
+            transform: scale(0.95);
+        }
+
+        .noselect {
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        @keyframes popIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.95) translateY(10px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .animate-pop {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+    </style>
+</head>
+
+<body id="app-body" class="h-screen w-screen relative overflow-hidden editor-bg">
+
+    <div id="home-warning-modal"
+        class="noselect hidden fixed inset-0 bg-black/80 z-[3000] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-[#1A1A1A] border border-[#333] rounded-lg p-6 w-80 shadow-2xl animate-pop">
+            <h3 class="text-white text-[15px] font-bold mb-2">Exit Workspace?</h3>
+            <p class="text-[#888] text-[13px] mb-6 leading-relaxed">Do you want to save your progress before leaving?
+            </p>
+            <div class="flex flex-col gap-2">
+                <button onclick="openSaveNameModal()"
+                    class="w-full bg-white text-black font-medium py-2 rounded-md text-[13px] hover:bg-gray-200 transition">Save
+                    Note</button>
+                <button onclick="exitToHome()"
+                    class="w-full bg-[#C62828] hover:bg-[#D32F2F] text-white font-medium py-2 rounded-md text-[13px] transition">Close
+                    without Saving</button>
+                <button onclick="closeModal('home-warning-modal')"
+                    class="w-full border border-[#444] hover:bg-[#222] text-white font-medium py-2 rounded-md text-[13px] transition mt-2">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="save-name-modal"
+        class="noselect hidden fixed inset-0 bg-black/80 z-[3000] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-[#1A1A1A] border border-[#333] rounded-lg p-6 w-[340px] shadow-2xl animate-pop">
+            <h3 class="text-white text-[15px] font-bold mb-4">Save Note</h3>
+            <input type="text" id="note-name-input" placeholder="Note Title (e.g. Python Chatbot)"
+                class="w-full bg-[#111] border border-[#333] text-white px-3 py-2.5 rounded-md mb-5 text-sm focus:border-white outline-none transition-colors select-text">
+
+            <div class="mb-6">
+                <span class="text-[#666] text-[10px] uppercase font-bold tracking-widest mb-2 block">Tags
+                    (Optional)</span>
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" id="tag-btn-code" onclick="toggleSaveTag('code')"
+                        class="bg-[#111] border border-[#333] text-[#888] py-2 rounded-md text-[12px] transition flex items-center justify-center gap-2 hover:bg-[#161616]">
+                        <i class="fa-solid fa-code"></i> Code
+                    </button>
+                    <button type="button" id="tag-btn-gaming" onclick="toggleSaveTag('gaming')"
+                        class="bg-[#111] border border-[#333] text-[#888] py-2 rounded-md text-[12px] transition flex items-center justify-center gap-2 hover:bg-[#161616]">
+                        <i class="fa-solid fa-gamepad"></i> Gaming
+                    </button>
+                    <button type="button" id="tag-btn-study" onclick="toggleSaveTag('study')"
+                        class="bg-[#111] border border-[#333] text-[#888] py-2 rounded-md text-[12px] transition flex items-center justify-center gap-2 hover:bg-[#161616]">
+                        <i class="fa-solid fa-book-open"></i> Study
+                    </button>
+                    <button type="button" id="tag-btn-project" onclick="toggleSaveTag('project')"
+                        class="bg-[#111] border border-[#333] text-[#888] py-2 rounded-md text-[12px] transition flex items-center justify-center gap-2 hover:bg-[#161616]">
+                        <i class="fa-solid fa-diagram-project"></i> Project
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="processSave()"
+                    class="flex-1 bg-white text-black font-medium py-2 rounded-md text-[13px] hover:bg-gray-200 transition">Save</button>
+                <button onclick="closeModal('save-name-modal')"
+                    class="flex-1 border border-[#444] hover:bg-[#222] text-white font-medium py-2 rounded-md text-[13px] transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="file-exists-modal"
+        class="noselect hidden fixed inset-0 bg-black/80 z-[3000] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-[#1A1A1A] border border-[#333] rounded-lg p-6 w-[340px] shadow-2xl animate-pop">
+            <div class="flex items-center gap-3 mb-2 text-[#FFC61E]">
+                <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                <h3 class="text-white text-[15px] font-bold">File Already Exists</h3>
+            </div>
+            <p class="text-[#888] text-[13px] mb-6 leading-relaxed">A note with this name already exists in your Vault.
+                Do you want to replace it or rename your current note?</p>
+            <div class="flex flex-col gap-2">
+                <button onclick="replaceExistingNote()"
+                    class="w-full bg-[#FFC61E] text-black font-medium py-2 rounded-md text-[13px] hover:bg-[#FFD659] transition shadow-lg shadow-[#FFC61E]/10">Replace
+                    Existing File</button>
+                <button onclick="backToRename()"
+                    class="w-full border border-[#444] hover:bg-[#222] text-white font-medium py-2 rounded-md text-[13px] transition">Rename
+                    File</button>
+                <button onclick="closeModal('file-exists-modal')"
+                    class="w-full text-[#888] hover:text-white font-medium py-2 rounded-md text-[13px] transition mt-1 underline">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="delete-popover"
+        class="noselect hidden fixed bg-[#1A1A1A] border border-[#333] rounded-lg p-4 w-60 shadow-2xl z-[2000] animate-pop">
+        <h3 class="text-white text-[14px] font-bold mb-1">Delete Page?</h3>
+        <p class="text-[#888] text-[12px] mb-4">This action cannot be undone.</p>
+        <div class="flex gap-2">
+            <button onclick="confirmDeletePage()"
+                class="flex-1 bg-[#C62828] hover:bg-[#D32F2F] text-white py-1.5 rounded text-xs font-medium transition">Delete</button>
+            <button onclick="closeDeletePopover()"
+                class="flex-1 border border-[#444] hover:bg-[#222] text-white py-1.5 rounded text-xs font-medium transition">Cancel</button>
+        </div>
+    </div>
+
+    <div id="search-widget"
+        class="noselect hidden fixed top-24 right-6 bg-[#1A1A1A] border border-[#333] rounded-lg p-4 w-72 shadow-2xl z-[1000] animate-pop">
+        <div class="flex justify-between items-center mb-3">
+            <span class="text-white text-[13px] font-medium">Find & Replace</span>
+            <i class="fa-solid fa-xmark text-[#888] cursor-pointer hover:text-white transition"
+                onclick="toggleSearchWidget()"></i>
+        </div>
+        <input type="text" id="find-input" placeholder="Find..."
+            class="w-full bg-[#111] border border-[#333] text-white px-3 py-2 rounded-md mb-2 text-sm focus:border-white outline-none transition-colors select-text"
+            onkeyup="countMatches()">
+        <div class="text-[#888] text-[11px] text-right mb-2" id="find-status"></div>
+        <div class="flex gap-2 mb-3">
+            <button onclick="findNext()"
+                class="flex-1 bg-[#333] hover:bg-[#444] text-white py-1.5 rounded text-xs font-medium transition">Find
+                Next</button>
+        </div>
+        <input type="text" id="replace-input" placeholder="Replace with..."
+            class="w-full bg-[#111] border border-[#333] text-white px-3 py-2 rounded-md mb-3 text-sm focus:border-white outline-none transition-colors select-text">
+        <div class="flex gap-2">
+            <button onclick="replaceOne()"
+                class="flex-1 border border-[#444] hover:bg-[#222] text-white py-1.5 rounded text-xs font-medium transition">Replace</button>
+            <button onclick="replaceAll()"
+                class="flex-1 bg-white text-black hover:bg-gray-200 py-1.5 rounded text-xs font-medium transition">Replace
+                All</button>
+        </div>
+    </div>
+
+    <div id="editor-screen">
+        <div class="ribbon">
+            <div class="toolbar-row">
+                <button onclick="triggerHomeModal()"
+                    class="toolbar-btn bg-[#1A1A1A] border border-[#333] hover:bg-[#2A2A2A] mr-2" title="Home / Exit">
+                    <i class="fa-solid fa-house text-[13px]"></i>
+                </button>
+                <div class="separator"></div>
+                <div class="dropdown-container">
+                    <div class="custom-select-btn" style="width: 140px;" id="currentFontLabel">
+                        <span class="truncate text-white">Inter</span><i
+                            class="fa-solid fa-chevron-down text-[10px] text-gray-500"></i>
+                    </div>
+                    <div class="dropdown-menu font-list-menu" id="fontDropdownList"></div>
+                </div>
+                <div class="separator"></div>
+                <div class="dropdown-container">
+                    <div class="custom-select-btn" style="width: 70px;" id="currentSizeLabel">
+                        <span class="truncate text-white">14</span><i
+                            class="fa-solid fa-chevron-down text-[10px] text-gray-500"></i>
+                    </div>
+                    <div class="dropdown-menu size-list-menu" id="sizeDropdownList"></div>
+                </div>
+                <div class="separator"></div>
+                <div class="flex gap-1">
+                    <button id="btn-bold" onmousedown="event.preventDefault(); formatDoc('bold')"
+                        class="toolbar-btn text-[15px]">B</button>
+                    <button id="btn-italic" onmousedown="event.preventDefault(); formatDoc('italic')"
+                        class="toolbar-btn italic font-serif text-[15px]">I</button>
+                    <button id="btn-underline" onmousedown="event.preventDefault(); formatDoc('underline')"
+                        class="toolbar-btn underline text-[15px]">U</button>
+                    <button id="btn-strike" onmousedown="event.preventDefault(); formatDoc('strikeThrough')"
+                        class="toolbar-btn line-through text-[15px]">S</button>
+                </div>
+                <div class="separator"></div>
+                <div class="flex gap-2 items-center">
+                    <div class="dropdown-container" id="textColorDropdownContainer">
+                        <div class="color-picker-trigger" id="textColorTrigger">
+                            <i class="fa-solid fa-palette text-[15px]"></i><span
+                                class="color-picker-trigger-text text-white">Text</span>
+                        </div>
+                        <div class="dropdown-menu color-grid-dropdown" id="textColorGrid"></div>
+                    </div>
+                    <div class="dropdown-container" id="hiliteColorDropdownContainer">
+                        <div class="color-picker-trigger" id="hiliteColorTrigger">
+                            <i class="fa-solid fa-palette text-[15px]"></i><span
+                                class="color-picker-trigger-text text-white">BG</span>
+                        </div>
+                        <div class="dropdown-menu color-grid-dropdown" id="hiliteColorGrid"></div>
+                    </div>
+                </div>
+                <div class="separator"></div>
+                <div class="flex gap-1">
+                    <button onmousedown="event.preventDefault(); document.execCommand('undo')" class="toolbar-btn"><i
+                            class="fa-solid fa-arrow-rotate-left"></i></button>
+                    <button onmousedown="event.preventDefault(); document.execCommand('redo')" class="toolbar-btn"><i
+                            class="fa-solid fa-arrow-rotate-right"></i></button>
+                </div>
+            </div>
+
+            <div class="toolbar-row">
+                <div class="flex gap-1">
+                    <button id="btn-left" onmousedown="event.preventDefault(); formatDoc('justifyLeft')"
+                        class="toolbar-btn"><i class="fa-solid fa-align-left"></i></button>
+                    <button id="btn-center" onmousedown="event.preventDefault(); formatDoc('justifyCenter')"
+                        class="toolbar-btn"><i class="fa-solid fa-align-center"></i></button>
+                    <button id="btn-right" onmousedown="event.preventDefault(); formatDoc('justifyRight')"
+                        class="toolbar-btn"><i class="fa-solid fa-align-right"></i></button>
+                    <button id="btn-justify" onmousedown="event.preventDefault(); formatDoc('justifyFull')"
+                        class="toolbar-btn"><i class="fa-solid fa-align-justify"></i></button>
+                </div>
+                <div class="separator"></div>
+                <div class="flex gap-1">
+                    <button id="btn-ul" onmousedown="event.preventDefault(); formatDoc('insertUnorderedList')"
+                        class="toolbar-btn"><i class="fa-solid fa-list-ul"></i></button>
+                    <button id="btn-ol" onmousedown="event.preventDefault(); formatDoc('insertOrderedList')"
+                        class="toolbar-btn"><i class="fa-solid fa-list-ol"></i></button>
+                </div>
+                <div class="separator"></div>
+                <div class="flex gap-1">
+                    <button id="btn-quote" onmousedown="event.preventDefault(); toggleBlockElement('BLOCKQUOTE')"
+                        class="toolbar-btn" title="Quote"><i class="fa-solid fa-quote-left text-[12px]"></i></button>
+                    <button id="btn-code" onmousedown="event.preventDefault(); toggleBlockElement('PRE')"
+                        class="toolbar-btn" title="Code Block"><i class="fa-solid fa-code text-[12px]"></i></button>
+                    <div class="dropdown-container">
+                        <button onmousedown="event.preventDefault(); toggleLinkPopover()" class="toolbar-btn"
+                            title="Insert Link"><i class="fa-solid fa-link"></i></button>
+                        <div class="dropdown-menu p-4 w-64 shadow-2xl border-[#333] noselect" id="link-popover">
+                            <div class="text-[#66B6FF] text-[13px] font-medium mb-3">Insert Link</div>
+                            <input type="text" id="link-display-text" placeholder="Display text"
+                                class="w-full bg-[#111] border border-[#333] text-white px-3 py-2 rounded-md mb-3 text-sm focus:border-white outline-none transition-colors select-text">
+                            <input type="text" id="link-url" placeholder="https://..."
+                                class="w-full bg-[#111] border border-[#333] text-white px-3 py-2 rounded-md mb-4 text-sm focus:border-white outline-none transition-colors select-text">
+                            <button onclick="confirmInsertLink()"
+                                class="w-full bg-white text-black font-medium py-2 rounded-md text-sm hover:bg-gray-200 transition">Insert</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="separator"></div>
+                <div class="flex gap-1">
+                    <button onclick="toggleSearchWidget()" class="toolbar-btn" title="Search"><i
+                            class="fa-solid fa-magnifying-glass text-[13px]"></i></button>
+                </div>
+                <div class="ml-auto flex items-center gap-6">
+                    <button onclick="addPage()" class="btn-add-page" title="Create New Page">
+                        <i class="fa-solid fa-plus text-[11px]"></i> Add Page
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="pages-container" onclick="focusEditor(event)"></div>
+    </div>
+
+    <script>
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+
+        // Shared Brain Directory
+        const dataFolder = path.join(os.homedir(), 'Documents', 'Sakura_SmartNotes');
+        if (!fs.existsSync(dataFolder)) fs.mkdirSync(dataFolder, { recursive: true });
+
+        const STORE = {
+            get: (key, def) => {
+                const filePath = path.join(dataFolder, `${key}.json`);
+                if (fs.existsSync(filePath)) {
+                    try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (e) { return def; }
+                } return def;
+            },
+            set: (key, val) => {
+                const filePath = path.join(dataFolder, `${key}.json`);
+                fs.writeFileSync(filePath, JSON.stringify(val, null, 2), 'utf8');
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', () => { setTimeout(() => { document.body.classList.add('page-loaded'); }, 50); });
+        function navigateToPage(url) { document.body.classList.remove('page-loaded'); document.body.classList.add('page-exit'); setTimeout(() => { window.location.href = url; }, 500); }
+
+        const fonts = ["Jersey 15", "Alegreya", "Arial", "Arvo", "Assistant", "Barlow", "Baskerville", "Bebas Neue", "Bitter", "Cabin", "Crimson Text", "DM Sans", "EB Garamond", "Figtree", "Fira Code", "Georgia", "Helvetica", "Inconsolata", "Inter", "JetBrains Mono", "Josefin Slab", "Karla", "Lato", "Libre Baskerville", "Lora", "Manrope", "Merriweather", "Montserrat", "Mulish", "Noto Sans", "Nunito", "Open Sans", "Oswald", "Outfit", "PT Sans", "PT Serif", "Playfair Display", "Plus Jakarta Sans", "Poppins", "Quicksand", "Raleway", "Roboto", "Roboto Mono", "Roboto Slab", "Rubik", "Source Sans 3", "Source Serif 4", "Space Grotesk", "Space Mono", "Times New Roman", "Ubuntu", "Work Sans"];
+        const exactColors = ["#FFFFFF", "#D9D9D9", "#A6A6A6", "#737373", "#404040", "#000000", "#FF3B3B", "#FF853B", "#FFC61E", "#3BFF3B", "#3B85FF", "#853BFF", "#FF6688", "#FFB677", "#FFED81", "#66FF88", "#66B6FF", "#B677FF", "#C21D1D", "#D96F16", "#BF9012", "#1D921D", "#166FD9", "#6F16D9"];
+
+        let pendingFileName = '';
+        let activeTags = [];
+
+        const googleFonts = fonts.filter(f => !["Arial", "Baskerville", "Georgia", "Helvetica", "Times New Roman"].includes(f));
+        const fontUrl = `https://fonts.googleapis.com/css2?family=${googleFonts.map(f => f.replace(/ /g, '+')).join('&family=')}&display=swap`;
+        const linkElem = document.createElement('link'); linkElem.href = fontUrl; linkElem.rel = 'stylesheet'; document.head.appendChild(linkElem);
+
+        document.querySelectorAll('.dropdown-container').forEach(container => {
+            const trigger = container.querySelector('.custom-select-btn, .color-picker-trigger, .toolbar-btn');
+            const menu = container.querySelector('.dropdown-menu');
+            if (trigger && menu) {
+                trigger.addEventListener('click', (e) => { const isOpen = menu.classList.contains('show'); closeAllDropdowns(); if (!isOpen) menu.classList.add('show'); });
+                menu.addEventListener('click', (e) => { if (e.target.closest('button.dropdown-item, .color-box, .cp-btn-none')) { closeAllDropdowns(); } });
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.dropdown-container')) closeAllDropdowns();
+            const deletePopover = document.getElementById('delete-popover');
+            if (!e.target.closest('#delete-popover') && !e.target.closest('.delete-page-btn') && !deletePopover.classList.contains('hidden')) { closeDeletePopover(); }
+        });
+
+        document.getElementById('pages-container').addEventListener('click', (e) => { if (e.target.tagName === 'A') { e.preventDefault(); window.open(e.target.href, '_blank'); } });
+        function closeAllDropdowns() { document.querySelectorAll('.dropdown-menu').forEach(menu => menu.classList.remove('show')); }
+
+        const fontDropdown = document.getElementById('fontDropdownList');
+        fonts.forEach(font => {
+            const btn = document.createElement('button'); btn.className = 'dropdown-item'; btn.textContent = font; btn.style.fontFamily = `"${font}", sans-serif`;
+            btn.onmousedown = (e) => { e.preventDefault(); document.getElementById('currentFontLabel').firstElementChild.textContent = font; formatDoc('fontName', font); };
+            fontDropdown.appendChild(btn);
+        });
+
+        const fontSizes = [14, 16, 18, 20, 22, 24, 26, 28, 36];
+        const sizeDropdown = document.getElementById('sizeDropdownList');
+        fontSizes.forEach(size => {
+            const btn = document.createElement('button'); btn.className = 'dropdown-item'; btn.textContent = size;
+            btn.onmousedown = (e) => { e.preventDefault(); applyCustomFontSize(size); }; sizeDropdown.appendChild(btn);
+        });
+
+        function populateColorGrid(gridId, type) {
+            const grid = document.getElementById(gridId); const gridDiv = document.createElement('div'); gridDiv.className = 'color-grid';
+            exactColors.forEach(color => {
+                const box = document.createElement('div'); box.className = 'color-box'; box.style.backgroundColor = color;
+                if (color === '#FFFFFF') box.style.border = '2px solid #555';
+                box.onmousedown = (e) => { e.preventDefault(); if (type === 'text') applyTextColor(color); else applyHiliteColor(color); }; gridDiv.appendChild(box);
+            });
+            grid.appendChild(gridDiv);
+            const noneBtn = document.createElement('button'); noneBtn.className = 'cp-btn-none'; noneBtn.innerHTML = type === 'text' ? '<i class="fa-solid fa-eraser"></i> Default Color' : '<i class="fa-solid fa-ban"></i> Default BG';
+            noneBtn.onmousedown = (e) => { e.preventDefault(); if (type === 'text') applyTextColor('#FFFFFF'); else applyHiliteColor('transparent'); }; grid.appendChild(noneBtn);
+        }
+        populateColorGrid('textColorGrid', 'text'); populateColorGrid('hiliteColorGrid', 'hilite');
+
+        // Modals
+        window.openModal = (id) => document.getElementById(id).classList.remove('hidden');
+        window.closeModal = (id) => document.getElementById(id).classList.add('hidden');
+        window.triggerHomeModal = () => openModal('home-warning-modal');
+        window.exitToHome = () => navigateToPage('index.html');
+
+        window.openSaveNameModal = () => {
+            closeModal('home-warning-modal');
+            openModal('save-name-modal');
+            setTimeout(() => document.getElementById('note-name-input').focus(), 50);
+        };
+
+        const TAG_STYLES = {
+            'code': { color: '#FFC61E' },
+            'gaming': { color: '#3B85FF' },
+            'study': { color: '#B677FF' },
+            'project': { color: '#FF3B3B' }
+        };
+
+        window.toggleSaveTag = (tag) => {
+            const btn = document.getElementById(`tag-btn-${tag}`);
+            const index = activeTags.indexOf(tag);
+
+            if (index === -1) {
+                activeTags.push(tag);
+                btn.style.borderColor = TAG_STYLES[tag].color;
+                btn.style.color = TAG_STYLES[tag].color;
+                btn.style.backgroundColor = '#1A1A1A';
+            } else {
+                activeTags.splice(index, 1);
+                btn.style.borderColor = '#333';
+                btn.style.color = '#888';
+                btn.style.backgroundColor = '#111';
+            }
+        };
+
+        window.processSave = () => {
+            const name = document.getElementById('note-name-input').value.trim();
+            if (!name) return;
+            pendingFileName = name;
+
+            const vaultNotes = STORE.get('sn_vault_notes', []);
+            const exists = vaultNotes.some(n => n.title.toLowerCase() === name.toLowerCase());
+
+            if (exists) {
+                closeModal('save-name-modal');
+                openModal('file-exists-modal');
+            } else {
+                executeFinalSaveAndExit();
+            }
+        };
+
+        window.backToRename = () => {
+            closeModal('file-exists-modal');
+            openModal('save-name-modal');
+            setTimeout(() => document.getElementById('note-name-input').focus(), 50);
+        };
+        window.replaceExistingNote = () => executeFinalSaveAndExit();
+
+        function executeFinalSaveAndExit() {
+            // Using the new Shared Brain logic
+            const vaultNotes = STORE.get('sn_vault_notes', []);
+
+            const pagesContainer = document.getElementById('pages-container');
+            let previewContent = pagesContainer.innerText.trim().substring(0, 120);
+            if (!previewContent) previewContent = "Empty note...";
+            else if (previewContent.length === 120) previewContent += "...";
+
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const existingIndex = vaultNotes.findIndex(n => n.title.toLowerCase() === pendingFileName.toLowerCase());
+
+            const newNote = {
+                id: Date.now(),
+                title: pendingFileName,
+                content: previewContent,
+                dateStr: dateStr,
+                timestamp: Date.now(),
+                pinned: false,
+                trashed: false,
+                tags: [...activeTags]
+            };
+
+            if (existingIndex !== -1) {
+                newNote.id = vaultNotes[existingIndex].id;
+                newNote.pinned = vaultNotes[existingIndex].pinned;
+                vaultNotes[existingIndex] = newNote;
+            } else {
+                vaultNotes.push(newNote);
+            }
+
+            STORE.set('sn_vault_notes', vaultNotes); // Saves directly to the JSON file!
+            exitToHome();
+        }
+
+        let savedLinkRange = null;
+        window.toggleLinkPopover = () => { restoreSelection(); const sel = window.getSelection(); savedLinkRange = sel.rangeCount > 0 ? sel.getRangeAt(0) : null; const textInput = document.getElementById('link-display-text'); const urlInput = document.getElementById('link-url'); textInput.value = sel.toString(); urlInput.value = ''; setTimeout(() => { if (document.getElementById('link-popover').classList.contains('show')) urlInput.focus(); }, 50); };
+        window.confirmInsertLink = () => { const text = document.getElementById('link-display-text').value; const url = document.getElementById('link-url').value; if (!url) { closeAllDropdowns(); return; } if (savedLinkRange) { const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(savedLinkRange); } if (text && text !== window.getSelection().toString()) { const a = `<a href="${url}" target="_blank">${text}</a>`; document.execCommand('insertHTML', false, a); } else { document.execCommand('createLink', false, url); } closeAllDropdowns(); updateToolbarState(); };
+
+        window.toggleSearchWidget = () => { const widget = document.getElementById('search-widget'); widget.classList.toggle('hidden'); if (!widget.classList.contains('hidden')) { document.getElementById('find-input').focus(); } };
+        window.countMatches = () => { const txt = document.getElementById('find-input').value; const status = document.getElementById('find-status'); if (!txt) { status.textContent = ''; return; } const regex = new RegExp(txt, 'gi'); const content = document.getElementById('pages-container').innerText; const matches = content.match(regex); status.textContent = matches ? `${matches.length} matches` : '0 matches'; };
+        window.findNext = () => window.find(document.getElementById('find-input').value);
+        window.replaceOne = () => { const sel = window.getSelection(); const findTxt = document.getElementById('find-input').value; if (sel.toString().toLowerCase() === findTxt.toLowerCase() && findTxt !== '') { document.execCommand('insertText', false, document.getElementById('replace-input').value); } else { window.findNext(); } countMatches(); };
+        window.replaceAll = () => { const findTxt = document.getElementById('find-input').value; const repTxt = document.getElementById('replace-input').value; if (!findTxt) return; const sel = window.getSelection(); sel.removeAllRanges(); const range = document.createRange(); const pages = document.querySelectorAll('.word-page'); if (pages.length) { range.selectNodeContents(pages[0]); range.collapse(true); sel.addRange(range); } let count = 0; while (window.find(findTxt, false, false, false, false, false, false)) { document.execCommand('insertText', false, repTxt); count++; } document.getElementById('find-status').textContent = `Replaced ${count} instances`; };
+
+        let savedRange = null;
+        document.addEventListener('selectionchange', () => { if (document.activeElement.tagName === 'INPUT') return; const sel = window.getSelection(); if (sel.rangeCount > 0) { let node = sel.anchorNode; if (node.nodeType === 3) node = node.parentNode; if (node.closest('.word-page')) { savedRange = sel.getRangeAt(0); updateToolbarState(); } } });
+        function restoreSelection() { if (savedRange) { const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(savedRange); } else { const p = document.querySelectorAll('.word-page'); if (p.length) p[p.length - 1].focus(); } }
+        function formatDoc(cmd, val = null) { restoreSelection(); document.execCommand(cmd, false, val); updateToolbarState(); }
+        function toggleBlockElement(tag) { restoreSelection(); const currentBlock = document.queryCommandValue('formatBlock'); if (currentBlock && currentBlock.toUpperCase() === tag) { document.execCommand('formatBlock', false, 'P'); } else { document.execCommand('formatBlock', false, tag); } updateToolbarState(); }
+        function applyCustomFontSize(val) { restoreSelection(); document.getElementById('currentSizeLabel').firstElementChild.textContent = val; document.execCommand("fontSize", false, "7"); document.querySelectorAll('font[size="7"]').forEach(tag => { tag.removeAttribute("size"); tag.style.fontSize = val + "px"; tag.style.lineHeight = "1.6"; }); }
+        function applyTextColor(color) { restoreSelection(); document.execCommand('foreColor', false, color); document.getElementById('textColorTrigger').querySelector('i').style.color = color; }
+        function applyHiliteColor(color) { restoreSelection(); document.execCommand('hiliteColor', false, color); document.getElementById('hiliteColorTrigger').querySelector('i').style.color = color === 'transparent' ? '#888' : color; }
+        function updateToolbarState() { const toggle = (id, cmd) => document.getElementById(id).classList.toggle('active', document.queryCommandState(cmd)); toggle('btn-bold', 'bold'); toggle('btn-italic', 'italic'); toggle('btn-underline', 'underline'); toggle('btn-strike', 'strikeThrough'); toggle('btn-left', 'justifyLeft'); toggle('btn-center', 'justifyCenter'); toggle('btn-right', 'justifyRight'); toggle('btn-justify', 'justifyFull'); toggle('btn-ul', 'insertUnorderedList'); toggle('btn-ol', 'insertOrderedList'); const blockFormat = document.queryCommandValue('formatBlock'); const formatStr = blockFormat ? blockFormat.toLowerCase() : ''; document.getElementById('btn-quote').classList.toggle('active', formatStr === 'blockquote'); document.getElementById('btn-code').classList.toggle('active', formatStr === 'pre'); }
+
+        window.addPage = () => { const container = document.getElementById('pages-container'); const wrapper = document.createElement('div'); wrapper.className = 'page-wrapper'; const header = document.createElement('div'); header.className = 'page-header-bar'; header.innerHTML = `<span></span><button class="delete-page-btn text-[#444] hover:text-[#FF3B3B] transition-colors" onclick="deletePageWrapper(this)" title="Remove Page"><i class="fa-solid fa-trash-can"></i></button>`; const p = document.createElement('div'); p.className = 'word-page'; p.contentEditable = true; let currentFont = 'Inter'; const fontLabel = document.getElementById('currentFontLabel'); if (fontLabel) { const truncateSpan = fontLabel.querySelector('.truncate'); if (truncateSpan) currentFont = truncateSpan.textContent; } p.style.fontFamily = currentFont; wrapper.appendChild(header); wrapper.appendChild(p); container.appendChild(wrapper); p.focus(); }
+
+        let targetPageWrapper = null;
+        window.deletePageWrapper = (btn) => { const wrappers = document.querySelectorAll('.page-wrapper'); if (wrappers.length <= 1) { btn.classList.add('shake-anim'); setTimeout(() => btn.classList.remove('shake-anim'), 400); return; } targetPageWrapper = btn.closest('.page-wrapper'); const popover = document.getElementById('delete-popover'); const rect = btn.getBoundingClientRect(); popover.style.top = (rect.bottom + 8) + 'px'; popover.style.left = (rect.right - 240) + 'px'; popover.classList.remove('hidden'); }
+        window.confirmDeletePage = () => { if (targetPageWrapper) { targetPageWrapper.remove(); targetPageWrapper = null; } closeDeletePopover(); }
+        window.closeDeletePopover = () => { document.getElementById('delete-popover').classList.add('hidden'); }
+        window.focusEditor = (e) => { if (e.target.id === 'pages-container') { const pages = document.querySelectorAll('.word-page'); if (pages.length) pages[pages.length - 1].focus(); } }
+        window.onload = () => addPage();
+    </script>
+</body>
+
+</html>

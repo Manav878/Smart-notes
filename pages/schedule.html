@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule | Smart-Notes</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #050505;
+            color: white;
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.5s cubic-bezier(0.25, 1, 0.5, 1), transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+            user-select: none;
+        }
+
+        body.page-loaded {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        body.page-exit {
+            opacity: 0;
+            transform: translateY(-30px);
+        }
+
+        * {
+            outline: none !important;
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        .minimal-checkbox {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 1px solid #555;
+            border-radius: 3px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            background: transparent;
+        }
+
+        .minimal-checkbox:checked {
+            background-color: white;
+            border-color: white;
+        }
+
+        .minimal-checkbox:checked::after {
+            content: '✔';
+            font-size: 10px;
+            color: black;
+            font-weight: 900;
+        }
+
+        .task-row.checked .task-text,
+        .task-row.checked .task-time {
+            color: #555 !important;
+            text-decoration: line-through;
+        }
+
+        .chart-grid-line {
+            width: 100%;
+            height: 1px;
+            background-color: #222;
+        }
+
+        .stat-bar {
+            width: 22px;
+            background-color: #444;
+            transition: height 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+            border-radius: 2px 2px 0 0;
+        }
+
+        .stat-bar.active {
+            background-color: white;
+        }
+
+        .tracking-widest-plus {
+            letter-spacing: 0.15em;
+        }
+
+        @keyframes smoothGlow {
+
+            0%,
+            100% {
+                opacity: 1;
+                text-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
+            }
+
+            50% {
+                opacity: 0.3;
+                text-shadow: none;
+            }
+        }
+
+        .smooth-blink {
+            animation: smoothGlow 1.5s ease-in-out infinite;
+        }
+
+        @keyframes popIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.9) translateY(15px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        @keyframes popOut {
+            0% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(0.92) translateY(10px);
+            }
+        }
+
+        .animate-pop {
+            animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .animate-pop-out {
+            animation: popOut 0.25s cubic-bezier(0.6, -0.28, 0.735, 0.045) forwards !important;
+        }
+
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body class="flex flex-col h-screen p-6 md:p-10 max-w-[1800px] mx-auto" id="app-body">
+
+    <div id="add-task-modal"
+        class="hidden fixed inset-0 bg-black/80 z-[3000] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-[#1A1A1A] border border-[#333] rounded-xl p-6 w-80 shadow-2xl animate-pop">
+            <h3 class="text-white text-[15px] font-bold mb-4">New Task</h3>
+            <input type="text" id="new-task-name" placeholder="Task name..."
+                class="w-full bg-[#111] border border-[#333] text-white px-3 py-2 rounded-md mb-3 text-sm focus:border-white outline-none transition-colors">
+            <div class="flex gap-2 mb-6">
+                <div class="w-full relative">
+                    <label
+                        class="text-[10px] text-[#666] absolute -top-2 left-2 bg-[#1A1A1A] px-1 font-mono">TIME</label>
+                    <input type="time" id="new-task-time"
+                        class="w-full bg-[#111] border border-[#333] text-white px-3 py-2 rounded-md text-sm focus:border-white outline-none transition-colors">
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="saveNewTask()"
+                    class="flex-1 bg-white text-black font-medium py-2 rounded-md text-[13px] hover:bg-gray-200 transition">Add</button>
+                <button onclick="closeModal('add-task-modal')"
+                    class="flex-1 border border-[#444] hover:bg-[#222] text-white font-medium py-2 rounded-md text-[13px] transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="add-event-modal"
+        class="hidden fixed inset-0 bg-black/80 z-[3000] flex items-center justify-center backdrop-blur-sm">
+        <div
+            class="bg-[#1A1A1A] border border-[#333] rounded-xl p-6 w-[340px] shadow-2xl animate-pop flex flex-col max-h-[80vh]">
+            <h3 class="text-white text-[15px] font-bold mb-1">Manage Events</h3>
+            <p class="text-xs text-[#888] mb-4 font-mono tracking-widest uppercase" id="event-date-display"></p>
+
+            <div id="existing-events-list" class="flex flex-col gap-2 mb-4 overflow-y-auto"></div>
+
+            <div class="border-t border-[#333] pt-4 mt-2">
+                <h4 class="text-[#888] text-[11px] uppercase font-bold tracking-wider mb-3">Add New Event</h4>
+                <input type="text" id="new-event-name" placeholder="e.g., Mom's Birthday"
+                    class="w-full bg-[#111] border border-[#333] text-white px-3 py-2 rounded-md mb-3 text-sm focus:border-white outline-none transition-colors">
+                <div class="w-full relative mb-6">
+                    <label class="text-[10px] text-[#666] absolute -top-2 left-2 bg-[#1A1A1A] px-1 font-mono">REMIND
+                        TIME</label>
+                    <input type="time" id="new-event-time"
+                        class="w-full bg-[#111] border border-[#333] text-white px-3 py-2 rounded-md text-sm focus:border-white outline-none transition-colors">
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="saveNewEvent()"
+                        class="flex-1 bg-white text-black font-medium py-2 rounded-md text-[13px] hover:bg-gray-200 transition">Save</button>
+                    <button onclick="closeModal('add-event-modal')"
+                        class="flex-1 border border-[#444] hover:bg-[#222] text-white font-medium py-2 rounded-md text-[13px] transition">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="pomo-settings-modal"
+        class="hidden fixed inset-0 bg-black/80 z-[3000] flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-[#1A1A1A] border border-[#333] rounded-xl p-6 w-64 shadow-2xl animate-pop">
+            <h3 class="text-white text-[15px] font-bold mb-4">Set Timer</h3>
+
+            <div class="flex items-center gap-3 mb-6 relative">
+                <div
+                    class="relative w-full flex items-center bg-[#111] border border-[#333] rounded-md focus-within:border-white transition-colors overflow-hidden">
+                    <input type="number" id="pomo-minutes-input" value="25" min="1" max="120"
+                        class="w-full bg-transparent text-white pl-4 pr-10 py-2 text-center text-lg outline-none font-medium">
+                    <div
+                        class="absolute right-0 flex flex-col items-center justify-center h-full border-l border-[#333] w-8 bg-[#161616]">
+                        <button
+                            class="h-1/2 w-full text-[#888] hover:text-white hover:bg-[#222] flex items-center justify-center transition-colors"
+                            onmousedown="startHoldChange(1)" onmouseup="stopHoldChange()"
+                            onmouseleave="stopHoldChange()"><i class="fa-solid fa-caret-up text-[12px]"></i></button>
+                        <button
+                            class="h-1/2 w-full text-[#888] hover:text-white hover:bg-[#222] flex items-center justify-center border-t border-[#333] transition-colors"
+                            onmousedown="startHoldChange(-1)" onmouseup="stopHoldChange()"
+                            onmouseleave="stopHoldChange()"><i class="fa-solid fa-caret-down text-[12px]"></i></button>
+                    </div>
+                </div>
+                <span class="text-[#888] font-mono text-sm">MINS</span>
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="savePomodoroSettings()"
+                    class="flex-1 bg-white text-black font-medium py-2 rounded-md text-[13px] hover:bg-gray-200 transition">Save</button>
+                <button onclick="closeModal('pomo-settings-modal')"
+                    class="flex-1 border border-[#444] hover:bg-[#222] text-white font-medium py-2 rounded-md text-[13px] transition">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <header
+        class="flex justify-between items-center w-full mb-6 font-mono tracking-widest-plus text-[#888] text-[13px]">
+        <div class="flex items-center gap-3 cursor-pointer hover:text-white transition group"
+            onclick="navigateToPage('index.html')" title="Back to Home">
+            <i class="fa-solid fa-arrow-left text-sm group-hover:-translate-x-1 transition-transform"></i>
+            <span
+                class="font-bold text-white tracking-[0.25em] text-lg group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.4)] transition">SMART
+                - NOTES</span>
+        </div>
+        <span class="font-semibold text-[#666] tracking-[0.2em]">DB SYNCED</span>
+    </header>
+
+    <main class="grid grid-cols-12 grid-rows-3 gap-6 flex-grow min-h-0">
+
+        <div
+            class="col-span-4 row-span-1 border border-[#222] rounded-xl flex flex-col items-center justify-center p-6 relative bg-[#0A0A0A]">
+            <div id="greeting-text" class="font-mono tracking-widest-plus text-xs text-[#888] mb-4 uppercase">GOOD
+                AFTERNOON</div>
+            <div class="flex items-baseline gap-2">
+                <span id="clock-main" class="text-[5.5rem] font-bold leading-none tracking-tight">12<span
+                        class="smooth-blink">:</span>01</span>
+                <span id="clock-sec" class="text-3xl text-[#666] font-medium font-mono">37</span>
+            </div>
+        </div>
+
+        <div
+            class="col-span-4 row-span-1 border border-[#222] rounded-xl flex flex-col items-center justify-center p-6 bg-[#0A0A0A]">
+            <div class="flex items-center gap-2 mb-4">
+                <div class="font-mono tracking-widest-plus text-xs text-[#888] uppercase">POMODORO</div>
+                <i class="fa-solid fa-gear text-[#444] hover:text-white cursor-pointer transition text-[11px]"
+                    onclick="openModal('pomo-settings-modal')"></i>
+            </div>
+
+            <div class="relative w-32 h-32 rounded-full border-4 border-[#222] flex items-center justify-center mb-6">
+                <span id="pomodoro-time" class="text-3xl font-bold tracking-wide">25:00</span>
+            </div>
+
+            <div class="flex gap-4 mb-4">
+                <button onclick="togglePomodoro()" id="pomodoro-btn"
+                    class="w-10 h-10 rounded-md border border-[#333] text-[#A6A6A6] flex items-center justify-center hover:bg-[#1A1A1A] hover:text-white transition">
+                    <i class="fa-solid fa-play text-sm"></i>
+                </button>
+                <button onclick="resetPomodoro()"
+                    class="w-10 h-10 rounded-md border border-[#333] text-[#A6A6A6] flex items-center justify-center hover:bg-[#1A1A1A] hover:text-white transition">
+                    <i class="fa-solid fa-arrow-rotate-left text-sm"></i>
+                </button>
+            </div>
+            <div class="text-xs text-[#666] font-mono"><span id="session-count">0</span> sessions completed</div>
+        </div>
+
+        <div class="col-span-4 row-span-2 border border-[#222] rounded-xl p-8 flex flex-col bg-[#0A0A0A]">
+            <div class="flex justify-between items-center mb-8 px-2">
+                <button onclick="prevMonth()" class="text-[#666] hover:text-white transition"><i
+                        class="fa-solid fa-chevron-left text-sm"></i></button>
+                <span id="cal-header"
+                    class="font-mono tracking-widest-plus text-sm font-bold text-white uppercase w-32 text-center"></span>
+                <button onclick="nextMonth()" class="text-[#666] hover:text-white transition"><i
+                        class="fa-solid fa-chevron-right text-sm"></i></button>
+            </div>
+
+            <div class="grid grid-cols-7 gap-y-6 gap-x-2 text-center font-mono text-[11px] mb-4">
+                <div class="text-[#888]">MON</div>
+                <div class="text-[#888]">TUE</div>
+                <div class="text-[#888]">WED</div>
+                <div class="text-[#888]">THU</div>
+                <div class="text-[#888]">FRI</div>
+                <div class="text-[#888]">SAT</div>
+                <div class="text-[#888]">SUN</div>
+            </div>
+
+            <div id="calendar-grid" class="grid grid-cols-7 gap-y-4 gap-x-2 text-center text-sm font-medium"></div>
+        </div>
+
+        <div class="col-span-8 row-span-1 border border-[#222] rounded-xl p-6 flex flex-col bg-[#0A0A0A]">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h3 class="font-mono tracking-widest-plus text-[13px] font-bold text-white mb-1">TASK SCHEDULE</h3>
+                    <div class="text-xs text-[#666] font-mono"><span id="task-completed-count">0</span>/<span
+                            id="task-total-count">0</span> completed</div>
+                </div>
+                <button onclick="openModal('add-task-modal')"
+                    class="w-8 h-8 rounded border border-[#333] text-[#A6A6A6] flex items-center justify-center hover:bg-[#1A1A1A] hover:text-white transition">
+                    <i class="fa-solid fa-plus text-xs"></i>
+                </button>
+            </div>
+
+            <div id="task-list-container" class="flex flex-col gap-4 overflow-y-auto pr-2 h-full"></div>
+        </div>
+
+        <div class="col-span-4 row-span-1 border border-[#222] rounded-xl p-6 flex flex-col bg-[#0A0A0A]">
+            <h3 class="font-mono tracking-widest-plus text-[13px] font-bold text-white mb-6">EVENT STATISTICS</h3>
+            <div class="relative flex-grow flex flex-col">
+                <div class="absolute inset-0 flex flex-col justify-between h-[80%] pointer-events-none z-0">
+                    <div class="chart-grid-line"></div>
+                    <div class="chart-grid-line"></div>
+                    <div class="chart-grid-line"></div>
+                    <div class="chart-grid-line"></div>
+                </div>
+                <div class="relative z-10 grid grid-cols-7 h-full items-end gap-2 pb-1" id="stats-chart"></div>
+            </div>
+        </div>
+
+        <div class="col-span-8 row-span-1 border border-[#222] rounded-xl p-6 flex flex-col bg-[#0A0A0A]">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-mono tracking-widest-plus text-[13px] font-bold text-white flex items-center">
+                    <i class="fa-regular fa-file-lines mr-3 text-[#666]"></i> QUICK NOTES
+                </h3>
+                <span class="text-[11px] text-[#666] font-mono" id="char-count">0/2000</span>
+            </div>
+            <textarea id="quick-note-area"
+                class="w-full flex-grow bg-transparent border-none outline-none text-[13px] text-[#A6A6A6] resize-none leading-relaxed placeholder-[#444]"
+                placeholder="Jot down your thoughts..." onkeyup="saveQuickNote()"></textarea>
+        </div>
+    </main>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+
+        // SHARED BRAIN SETUP
+        const dataFolder = path.join(os.homedir(), 'Documents', 'Sakura_SmartNotes');
+        if (!fs.existsSync(dataFolder)) fs.mkdirSync(dataFolder, { recursive: true });
+
+        const STORE = {
+            get: (key, def) => {
+                const filePath = path.join(dataFolder, `${key}.json`);
+                if (fs.existsSync(filePath)) {
+                    try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (e) { return def; }
+                } return def;
+            },
+            set: (key, val) => {
+                const filePath = path.join(dataFolder, `${key}.json`);
+                fs.writeFileSync(filePath, JSON.stringify(val, null, 2), 'utf8');
+            }
+        };
+
+        let tasks = STORE.get('sn_tasks', []);
+        let weeklyStats = STORE.get('sn_stats', {});
+        let calendarEvents = STORE.get('sn_events', {});
+        let quickNoteContent = STORE.get('sn_quick', "");
+
+        const noteArea = document.getElementById('quick-note-area');
+        noteArea.value = quickNoteContent;
+        function saveQuickNote() {
+            STORE.set('sn_quick', noteArea.value);
+            STORE.set('sn_quick_time', Date.now());
+            document.getElementById('char-count').innerText = `${noteArea.value.length}/2000`;
+        }
+        saveQuickNote();
+
+        const todayStr = new Date().toDateString();
+        const lastTaskDate = STORE.get('sn_last_date', "");
+        if (lastTaskDate !== todayStr) {
+            tasks = [];
+            STORE.set('sn_tasks', tasks);
+            STORE.set('sn_last_date', todayStr);
+        }
+
+        const workerCode = `
+            let timer = null;
+            self.onmessage = function(e) {
+                if(e.data === 'start') { timer = setInterval(() => self.postMessage('tick'), 1000); } 
+                else if(e.data === 'stop') { clearInterval(timer); }
+            };
+        `;
+        const workerBlob = new Blob([workerCode], { type: 'application/javascript' });
+        const bgWorker = new Worker(URL.createObjectURL(workerBlob));
+
+        function showAppNotification(title, desc, type = "task") {
+            ipcRenderer.send('trigger-notification', { title: title, desc: desc, type: type });
+        }
+
+        window.addEventListener('DOMContentLoaded', () => { setTimeout(() => { document.body.classList.add('page-loaded'); }, 50); });
+        function navigateToPage(url) { document.body.classList.remove('page-loaded'); document.body.classList.add('page-exit'); setTimeout(() => { window.location.href = url; }, 500); }
+
+        window.openModal = (id) => { document.getElementById(id).classList.remove('hidden'); };
+        window.closeModal = (id) => {
+            const el = document.getElementById(id);
+            const animElem = el.querySelector('.animate-pop');
+            if (animElem) {
+                animElem.classList.remove('animate-pop'); animElem.classList.add('animate-pop-out');
+                setTimeout(() => { el.classList.add('hidden'); animElem.classList.remove('animate-pop-out'); animElem.classList.add('animate-pop'); }, 240);
+            } else { el.classList.add('hidden'); }
+        };
+
+        function updateClock() {
+            const now = new Date();
+            let hours = now.getHours();
+            const greetingEl = document.getElementById('greeting-text');
+            if (hours >= 5 && hours < 12) greetingEl.innerText = "GOOD MORNING";
+            else if (hours >= 12 && hours < 18) greetingEl.innerText = "GOOD AFTERNOON";
+            else greetingEl.innerText = "GOOD EVENING";
+
+            hours = hours % 12; hours = hours ? hours : 12;
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const seconds = now.getSeconds().toString().padStart(2, '0');
+
+            document.getElementById('clock-main').innerHTML = `${hours}<span class="smooth-blink">:</span>${minutes}`;
+            document.getElementById('clock-sec').innerText = seconds;
+        }
+        setInterval(updateClock, 1000); updateClock();
+
+        let calDate = new Date();
+        let selectedEventDate = null;
+
+        function prevMonth() { calDate.setMonth(calDate.getMonth() - 1); generateCalendar(); }
+        function nextMonth() { calDate.setMonth(calDate.getMonth() + 1); generateCalendar(); }
+
+        function triggerEventModal(y, m, d) {
+            selectedEventDate = `${y}-${m}-${d}`;
+            document.getElementById('event-date-display').innerText = new Date(y, m, d).toDateString();
+            document.getElementById('new-event-name').value = '';
+            document.getElementById('new-event-time').value = '';
+            renderExistingEvents(); openModal('add-event-modal');
+        }
+
+        function renderExistingEvents() {
+            const list = document.getElementById('existing-events-list');
+            list.innerHTML = "";
+            const evs = calendarEvents[selectedEventDate] || [];
+            if (evs.length === 0) { list.innerHTML = `<span class="text-[#666] text-[11px] italic">No events mapped for this day.</span>`; return; }
+
+            evs.forEach((e, i) => {
+                list.innerHTML += `
+                    <div class="flex items-center justify-between bg-[#111] p-2 rounded border border-[#333]">
+                        <div class="flex flex-col"><span class="text-[#E5E5E5] text-[13px] font-medium">${e.name}</span><span class="text-[#888] text-[10px] font-mono">${format12Hour(e.time)}</span></div>
+                        <i class="fa-solid fa-trash-can text-[#444] hover:text-[#DC2626] cursor-pointer text-xs transition" onclick="deleteEvent(${i})"></i>
+                    </div>
+                `;
+            });
+        }
+
+        function saveNewEvent() {
+            const name = document.getElementById('new-event-name').value.trim();
+            const time = document.getElementById('new-event-time').value;
+            if (name && selectedEventDate && time) {
+                if (!calendarEvents[selectedEventDate]) calendarEvents[selectedEventDate] = [];
+                calendarEvents[selectedEventDate].push({ id: Date.now(), name, time, notified: false });
+                STORE.set('sn_events', calendarEvents);
+                generateCalendar(); renderExistingEvents();
+                document.getElementById('new-event-name').value = ''; document.getElementById('new-event-time').value = '';
+            }
+        }
+
+        function deleteEvent(index) {
+            calendarEvents[selectedEventDate].splice(index, 1);
+            if (calendarEvents[selectedEventDate].length === 0) delete calendarEvents[selectedEventDate];
+            STORE.set('sn_events', calendarEvents); generateCalendar(); renderExistingEvents();
+        }
+
+        function generateCalendar() {
+            const year = calDate.getFullYear(); const month = calDate.getMonth();
+            const realToday = new Date();
+            const isCurrentMonth = realToday.getMonth() === month && realToday.getFullYear() === year;
+            const todayDate = realToday.getDate();
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            document.getElementById('cal-header').innerText = `${monthNames[month]} ${year}`;
+
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const firstDayIndex = new Date(year, month, 1).getDay();
+            const adjustedStartDay = (firstDayIndex === 0) ? 6 : firstDayIndex - 1;
+
+            const grid = document.getElementById('calendar-grid'); grid.innerHTML = "";
+            for (let i = 0; i < adjustedStartDay; i++) { grid.appendChild(document.createElement('div')); }
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dayEl = document.createElement('div'); dayEl.innerText = d;
+                dayEl.className = "relative h-8 w-8 flex items-center justify-center rounded-md mx-auto transition tooltip cursor-pointer";
+                dayEl.onclick = () => triggerEventModal(year, month, d);
+
+                const currentDayOfWeek = new Date(year, month, d).getDay();
+                if (isCurrentMonth && d === todayDate) { dayEl.classList.add('bg-[#222]', 'text-white', 'font-bold'); }
+                else if (currentDayOfWeek === 0) { dayEl.classList.add('text-[#DC2626]', 'hover:bg-[#1A1A1A]'); }
+                else { dayEl.classList.add('text-[#888]', 'hover:bg-[#1A1A1A]', 'hover:text-white'); }
+
+                const dateKey = `${year}-${month}-${d}`;
+                if (calendarEvents[dateKey] && calendarEvents[dateKey].length > 0) {
+                    dayEl.innerHTML += `<div class="w-1 h-1 rounded-full bg-white shadow-[0_0_4px_white] absolute bottom-1"></div>`;
+                    dayEl.innerHTML += `<span class="tooltip-text absolute bottom-full mb-1 text-[10px] bg-[#111] border border-[#333] text-white px-2 py-1 rounded shadow-lg whitespace-nowrap z-50">${calendarEvents[dateKey].length} Event(s)</span>`;
+                }
+                grid.appendChild(dayEl);
+            }
+        }
+        generateCalendar();
+
+        let completedToday = 0;
+        function format12Hour(timeStr) {
+            if (!timeStr) return "";
+            let [h, m] = timeStr.split(':'); let hours = parseInt(h); let ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12; hours = hours ? hours : 12; return `${hours}:${m} ${ampm}`;
+        }
+
+        function renderTasks() {
+            // Hot-reload tasks from the JSON file so Sakura's new tasks show up instantly!
+            tasks = STORE.get('sn_tasks', []);
+            const container = document.getElementById('task-list-container'); container.innerHTML = "";
+
+            if (tasks.length === 0) { container.innerHTML = `<div class="text-[#666] text-[13px] text-center mt-6">No tasks yet. Add one!</div>`; }
+
+            tasks.forEach((t, index) => {
+                const checkedClass = t.checked ? "checked" : ""; const checkState = t.checked ? "checked" : "";
+                container.innerHTML += `
+                    <div class="flex items-center justify-between task-row group transition ${checkedClass}">
+                        <div class="flex items-center gap-4">
+                            <input type="checkbox" class="minimal-checkbox" onchange="toggleTask(${index})" ${checkState}>
+                            <span class="text-sm font-medium text-[#E5E5E5] task-text transition-colors">${t.name}</span>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span class="text-xs text-[#888] font-mono task-time transition-colors">${format12Hour(t.time)}</span>
+                            <i class="fa-solid fa-trash-can text-[#444] hover:text-[#DC2626] cursor-pointer opacity-0 group-hover:opacity-100 transition-all text-xs" onclick="deleteTask(${index})" title="Delete Task"></i>
+                        </div>
+                    </div>
+                `;
+            });
+            updateTaskCounts();
+        }
+
+        function toggleTask(index) { tasks[index].checked = !tasks[index].checked; STORE.set('sn_tasks', tasks); renderTasks(); }
+        function deleteTask(index) { tasks.splice(index, 1); STORE.set('sn_tasks', tasks); renderTasks(); }
+
+        function saveNewTask() {
+            const name = document.getElementById('new-task-name').value.trim();
+            const time = document.getElementById('new-task-time').value;
+            if (name && time) {
+                tasks.push({ id: Date.now(), name, time, checked: false, notified: false });
+                STORE.set('sn_tasks', tasks); renderTasks(); closeModal('add-task-modal');
+                document.getElementById('new-task-name').value = ''; document.getElementById('new-task-time').value = '';
+            }
+        }
+
+        function updateTaskCounts() {
+            completedToday = tasks.filter(t => t.checked).length;
+            document.getElementById('task-total-count').innerText = tasks.length;
+            document.getElementById('task-completed-count').innerText = completedToday;
+            const todayStr = new Date().toDateString();
+            weeklyStats[todayStr] = completedToday; STORE.set('sn_stats', weeklyStats); generateChart();
+        }
+
+        function generateChart() {
+            const chartGrid = document.getElementById('stats-chart'); chartGrid.innerHTML = "";
+            const daysData = []; const dayNames = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 0: 'Sun' };
+            let maxTasks = 5; const today = new Date();
+
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(); d.setDate(today.getDate() - i);
+                const dStr = d.toDateString(); const dIdx = d.getDay();
+                const count = weeklyStats[dStr] || 0;
+                if (count > maxTasks) maxTasks = count;
+                daysData.push({ isToday: i === 0, name: dayNames[dIdx], count: count });
+            }
+
+            daysData.forEach((d) => {
+                const heightPct = d.count === 0 ? 5 : Math.max((d.count / maxTasks) * 100, 5);
+                const labelClass = d.isToday ? "text-white" : "text-[#666]";
+                const barClass = d.isToday ? "active" : "";
+                const tooltipVisibility = d.isToday ? "opacity-100" : "opacity-0 group-hover:opacity-100";
+
+                chartGrid.innerHTML += `
+                    <div class="flex flex-col items-center h-full justify-end group relative">
+                        <div class="absolute -top-7 text-[10px] text-white bg-[#222] px-2 py-0.5 rounded shadow-lg transition-opacity duration-200 ${tooltipVisibility} whitespace-nowrap pointer-events-none z-50">${d.count} Done</div>
+                        <div class="h-[80%] w-full flex items-end justify-center"><div class="stat-bar ${barClass}" style="height: 0%" data-target-height="${heightPct}%"></div></div>
+                        <div class="h-[20%] w-full flex items-end justify-center pb-1"><span class="text-[10px] font-mono ${labelClass}">${d.name}</span></div>
+                    </div>
+                `;
+            });
+            setTimeout(() => { document.querySelectorAll('.stat-bar').forEach(bar => { bar.style.height = bar.getAttribute('data-target-height'); }); }, 50);
+        }
+
+        renderTasks();
+
+        setInterval(() => {
+            const now = new Date();
+            const timeStr = now.getHours().toString().padStart(2, '0') + ":" + now.getMinutes().toString().padStart(2, '0');
+            const dateKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+
+            // Hot-reload to check if Sakura added anything new in the last 10 seconds!
+            tasks = STORE.get('sn_tasks', []);
+            calendarEvents = STORE.get('sn_events', {});
+            renderTasks();
+
+            let shouldSaveTasks = false;
+            tasks.forEach(t => {
+                if (!t.checked && !t.notified && t.time === timeStr) { t.notified = true; shouldSaveTasks = true; showAppNotification("Task Reminder", `It's time for: ${t.name}`, "task"); }
+            });
+            if (shouldSaveTasks) STORE.set('sn_tasks', tasks);
+
+            let shouldSaveEvents = false;
+            const todaysEvs = calendarEvents[dateKey] || [];
+            todaysEvs.forEach(e => {
+                if (!e.notified && e.time === timeStr) { e.notified = true; shouldSaveEvents = true; showAppNotification("Event Reminder", `Calendar Event: ${e.name}`, "event"); }
+            });
+            if (shouldSaveEvents) STORE.set('sn_events', calendarEvents);
+        }, 10000);
+
+        let pomoSettingMins = 25; let timeLeft = pomoSettingMins * 60; let isRunning = false; let sessions = 0; let holdInterval;
+        function updatePomodoroDisplay() { const m = Math.floor(timeLeft / 60).toString().padStart(2, '0'); const s = (timeLeft % 60).toString().padStart(2, '0'); document.getElementById('pomodoro-time').innerText = `${m}:${s}`; }
+        function changeTimer(amount) { const input = document.getElementById('pomo-minutes-input'); let val = parseInt(input.value) + amount; if (val >= 1 && val <= 120) input.value = val; }
+        function startHoldChange(amount) { changeTimer(amount); holdInterval = setInterval(() => changeTimer(amount), 100); }
+        function stopHoldChange() { clearInterval(holdInterval); }
+        function savePomodoroSettings() { const val = parseInt(document.getElementById('pomo-minutes-input').value); if (val > 0) { pomoSettingMins = val; resetPomodoro(); } closeModal('pomo-settings-modal'); }
+
+        bgWorker.onmessage = function (e) {
+            if (e.data === 'tick' && isRunning) {
+                if (timeLeft > 0) { timeLeft--; updatePomodoroDisplay(); } else {
+                    isRunning = false; bgWorker.postMessage('stop'); document.querySelector('#pomodoro-btn i').classList.replace('fa-pause', 'fa-play'); sessions++; document.getElementById('session-count').innerText = sessions; timeLeft = pomoSettingMins * 60; updatePomodoroDisplay(); showAppNotification("Pomodoro Complete!", "Great job! Take a short break.", "timer");
+                }
+            }
+        };
+
+        function togglePomodoro() { const icon = document.querySelector('#pomodoro-btn i'); if (isRunning) { bgWorker.postMessage('stop'); icon.classList.replace('fa-pause', 'fa-play'); isRunning = false; } else { icon.classList.replace('fa-play', 'fa-pause'); isRunning = true; bgWorker.postMessage('start'); } }
+        function resetPomodoro() { bgWorker.postMessage('stop'); isRunning = false; timeLeft = pomoSettingMins * 60; document.querySelector('#pomodoro-btn i').classList.replace('fa-pause', 'fa-play'); updatePomodoroDisplay(); }
+        updatePomodoroDisplay();
+
+        ipcRenderer.on('notification-reply', (event, action) => {
+            if (action === 'snooze') { pomoSettingMins = 5; timeLeft = 5 * 60; isRunning = true; document.querySelector('#pomodoro-btn i').classList.replace('fa-play', 'fa-pause'); bgWorker.postMessage('start'); updatePomodoroDisplay(); } else if (action === 'stop') { resetPomodoro(); }
+        });
+    </script>
+</body>
+
+</html>
