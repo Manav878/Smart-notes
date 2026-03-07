@@ -388,26 +388,7 @@
 
     <script>
         const { ipcRenderer } = require('electron');
-        const fs = require('fs');
-        const path = require('path');
-        const os = require('os');
-
-        // SHARED BRAIN SETUP
-        const dataFolder = path.join(os.homedir(), 'Documents', 'Sakura_SmartNotes');
-        if (!fs.existsSync(dataFolder)) fs.mkdirSync(dataFolder, { recursive: true });
-
-        const STORE = {
-            get: (key, def) => {
-                const filePath = path.join(dataFolder, `${key}.json`);
-                if (fs.existsSync(filePath)) {
-                    try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (e) { return def; }
-                } return def;
-            },
-            set: (key, val) => {
-                const filePath = path.join(dataFolder, `${key}.json`);
-                fs.writeFileSync(filePath, JSON.stringify(val, null, 2), 'utf8');
-            }
-        };
+        const STORE = require('../store.js'); // Centralized Store Module
 
         let tasks = STORE.get('sn_tasks', []);
         let weeklyStats = STORE.get('sn_stats', {});
@@ -423,11 +404,14 @@
         }
         saveQuickNote();
 
+        // FIXED: Tasks now correctly roll over instead of wiping
         const todayStr = new Date().toDateString();
         const lastTaskDate = STORE.get('sn_last_date', "");
-        if (lastTaskDate !== todayStr) {
-            tasks = [];
+        if (lastTaskDate !== "" && lastTaskDate !== todayStr) {
+            tasks.forEach(t => { t.checked = false; t.notified = false; });
             STORE.set('sn_tasks', tasks);
+            STORE.set('sn_last_date', todayStr);
+        } else if (lastTaskDate === "") {
             STORE.set('sn_last_date', todayStr);
         }
 

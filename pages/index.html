@@ -100,29 +100,12 @@
     </div>
 
     <script>
-        const fs = require('fs');
-        const path = require('path');
-        const os = require('os');
-
-        const dataFolder = path.join(os.homedir(), 'Documents', 'Sakura_SmartNotes');
-        if (!fs.existsSync(dataFolder)) fs.mkdirSync(dataFolder, { recursive: true });
-
-        const STORE = {
-            get: (key, def) => {
-                const filePath = path.join(dataFolder, `${key}.json`);
-                if (fs.existsSync(filePath)) {
-                    try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (e) { return def; }
-                } return def;
-            },
-            set: (key, val) => {
-                const filePath = path.join(dataFolder, `${key}.json`);
-                fs.writeFileSync(filePath, JSON.stringify(val, null, 2), 'utf8');
-            }
-        };
+        // Centralized Store Module
+        const STORE = require('../store.js');
 
         window.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => { document.body.classList.add('page-loaded'); }, 50);
-            runAutoBurner();
+            // Auto-burner has been permanently removed
         });
 
         function navigateToPage(url) {
@@ -141,37 +124,6 @@
         document.getElementById('nav-create-note').onclick = () => navigateToPage('note.html');
         document.getElementById('nav-vault').onclick = () => navigateToPage('vault.html');
         document.getElementById('nav-view-schedule').onclick = () => navigateToPage('schedule.html');
-
-        function runAutoBurner() {
-            const now = Date.now();
-            const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
-
-            let vaultNotes = STORE.get('sn_vault_notes', []);
-            const origVaultLen = vaultNotes.length;
-            vaultNotes = vaultNotes.filter(note => (now - note.timestamp) < SEVEN_DAYS);
-            if (vaultNotes.length !== origVaultLen) STORE.set('sn_vault_notes', vaultNotes);
-
-            let events = STORE.get('sn_events', {});
-            let eventsChanged = false;
-            for (let dateKey in events) {
-                if (now - new Date(dateKey).getTime() > SEVEN_DAYS) { delete events[dateKey]; eventsChanged = true; }
-            }
-            if (eventsChanged) STORE.set('sn_events', events);
-
-            let stats = STORE.get('sn_stats', {});
-            let statsChanged = false;
-            for (let dateKey in stats) {
-                if (now - new Date(dateKey).getTime() > SEVEN_DAYS) { delete stats[dateKey]; statsChanged = true; }
-            }
-            if (statsChanged) STORE.set('sn_stats', stats);
-
-            let quickNoteTime = STORE.get('sn_quick_time', now);
-            if (now - quickNoteTime > SEVEN_DAYS) {
-                STORE.set('sn_quick', "");
-                STORE.set('sn_quick_time', now);
-            }
-            console.log("System Check: Old data purged from Shared Brain.");
-        }
     </script>
 </body>
 

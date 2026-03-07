@@ -284,26 +284,8 @@
     </main>
 
     <script>
-        const fs = require('fs');
-        const path = require('path');
-        const os = require('os');
-
-        // Shared Brain Directory Setup
-        const dataFolder = path.join(os.homedir(), 'Documents', 'Sakura_SmartNotes');
-        if (!fs.existsSync(dataFolder)) fs.mkdirSync(dataFolder, { recursive: true });
-
-        const STORE = {
-            get: (key, def) => {
-                const filePath = path.join(dataFolder, `${key}.json`);
-                if (fs.existsSync(filePath)) {
-                    try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (e) { return def; }
-                } return def;
-            },
-            set: (key, val) => {
-                const filePath = path.join(dataFolder, `${key}.json`);
-                fs.writeFileSync(filePath, JSON.stringify(val, null, 2), 'utf8');
-            }
-        };
+        // Centralized Store Module
+        const STORE = require('../store.js');
 
         window.addEventListener('DOMContentLoaded', () => { setTimeout(() => { document.body.classList.add('page-loaded'); }, 50); initVault(); });
         function navigateToPage(url) { document.body.classList.remove('page-loaded'); document.body.classList.add('page-exit'); setTimeout(() => { window.location.href = url; }, 500); }
@@ -398,7 +380,7 @@
                 `;
             } else {
                 actionsContainer.innerHTML = `
-                    <button onclick="navigateToPage('note.html')" class="w-full bg-[#E5E5E5] text-black font-semibold py-2.5 rounded-md text-[13px] hover:bg-white transition flex items-center justify-center gap-2"><i class="fa-solid fa-pen-to-square"></i> Open in Workspace</button>
+                    <button onclick="navigateToPage('note.html?id=${id}')" class="w-full bg-[#E5E5E5] text-black font-semibold py-2.5 rounded-md text-[13px] hover:bg-white transition flex items-center justify-center gap-2"><i class="fa-solid fa-pen-to-square"></i> Open in Workspace</button>
                     <button onclick="triggerBinAction(${id}); closeModal('note-action-modal')" class="w-full bg-[#111] border border-[#333] text-[#DC2626] font-medium py-2.5 rounded-md text-[13px] hover:bg-[#1A1A1A] hover:border-[#DC2626] transition flex items-center justify-center gap-2"><i class="fa-solid fa-trash-can"></i> Move to Bin</button>
                 `;
             }

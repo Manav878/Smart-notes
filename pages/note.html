@@ -667,35 +667,58 @@
     </div>
 
     <script>
-        const fs = require('fs');
-        const path = require('path');
-        const os = require('os');
-
-        // Shared Brain Directory
-        const dataFolder = path.join(os.homedir(), 'Documents', 'Sakura_SmartNotes');
-        if (!fs.existsSync(dataFolder)) fs.mkdirSync(dataFolder, { recursive: true });
-
-        const STORE = {
-            get: (key, def) => {
-                const filePath = path.join(dataFolder, `${key}.json`);
-                if (fs.existsSync(filePath)) {
-                    try { return JSON.parse(fs.readFileSync(filePath, 'utf8')); } catch (e) { return def; }
-                } return def;
-            },
-            set: (key, val) => {
-                const filePath = path.join(dataFolder, `${key}.json`);
-                fs.writeFileSync(filePath, JSON.stringify(val, null, 2), 'utf8');
-            }
-        };
-
-        window.addEventListener('DOMContentLoaded', () => { setTimeout(() => { document.body.classList.add('page-loaded'); }, 50); });
-        function navigateToPage(url) { document.body.classList.remove('page-loaded'); document.body.classList.add('page-exit'); setTimeout(() => { window.location.href = url; }, 500); }
-
-        const fonts = ["Jersey 15", "Alegreya", "Arial", "Arvo", "Assistant", "Barlow", "Baskerville", "Bebas Neue", "Bitter", "Cabin", "Crimson Text", "DM Sans", "EB Garamond", "Figtree", "Fira Code", "Georgia", "Helvetica", "Inconsolata", "Inter", "JetBrains Mono", "Josefin Slab", "Karla", "Lato", "Libre Baskerville", "Lora", "Manrope", "Merriweather", "Montserrat", "Mulish", "Noto Sans", "Nunito", "Open Sans", "Oswald", "Outfit", "PT Sans", "PT Serif", "Playfair Display", "Plus Jakarta Sans", "Poppins", "Quicksand", "Raleway", "Roboto", "Roboto Mono", "Roboto Slab", "Rubik", "Source Sans 3", "Source Serif 4", "Space Grotesk", "Space Mono", "Times New Roman", "Ubuntu", "Work Sans"];
-        const exactColors = ["#FFFFFF", "#D9D9D9", "#A6A6A6", "#737373", "#404040", "#000000", "#FF3B3B", "#FF853B", "#FFC61E", "#3BFF3B", "#3B85FF", "#853BFF", "#FF6688", "#FFB677", "#FFED81", "#66FF88", "#66B6FF", "#B677FF", "#C21D1D", "#D96F16", "#BF9012", "#1D921D", "#166FD9", "#6F16D9"];
+        const STORE = require('../store.js');
 
         let pendingFileName = '';
         let activeTags = [];
+        let currentLoadedId = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => { document.body.classList.add('page-loaded'); }, 50);
+        });
+
+        function navigateToPage(url) {
+            document.body.classList.remove('page-loaded');
+            document.body.classList.add('page-exit');
+            setTimeout(() => { window.location.href = url; }, 500);
+        }
+
+        // LOAD DATA OR CREATE BLANK PAGE
+        window.onload = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const loadId = urlParams.get('id');
+
+            if (loadId) {
+                const vaultNotes = STORE.get('sn_vault_notes', []);
+                const note = vaultNotes.find(n => n.id === parseInt(loadId));
+                if (note) {
+                    currentLoadedId = note.id;
+                    pendingFileName = note.title;
+                    document.getElementById('note-name-input').value = note.title;
+                    activeTags = note.tags || [];
+
+                    if (note.fullHTML) {
+                        document.getElementById('pages-container').innerHTML = note.fullHTML;
+                    } else {
+                        addPage();
+                    }
+
+                    activeTags.forEach(tag => {
+                        const btn = document.getElementById(`tag-btn-${tag}`);
+                        if (btn) {
+                            btn.style.borderColor = TAG_STYLES[tag].color;
+                            btn.style.color = TAG_STYLES[tag].color;
+                            btn.style.backgroundColor = '#1A1A1A';
+                        }
+                    });
+                    return;
+                }
+            }
+            addPage(); // Only fire if new note
+        };
+
+        const fonts = ["Jersey 15", "Alegreya", "Arial", "Arvo", "Assistant", "Barlow", "Baskerville", "Bebas Neue", "Bitter", "Cabin", "Crimson Text", "DM Sans", "EB Garamond", "Figtree", "Fira Code", "Georgia", "Helvetica", "Inconsolata", "Inter", "JetBrains Mono", "Josefin Slab", "Karla", "Lato", "Libre Baskerville", "Lora", "Manrope", "Merriweather", "Montserrat", "Mulish", "Noto Sans", "Nunito", "Open Sans", "Oswald", "Outfit", "PT Sans", "PT Serif", "Playfair Display", "Plus Jakarta Sans", "Poppins", "Quicksand", "Raleway", "Roboto", "Roboto Mono", "Roboto Slab", "Rubik", "Source Sans 3", "Source Serif 4", "Space Grotesk", "Space Mono", "Times New Roman", "Ubuntu", "Work Sans"];
+        const exactColors = ["#FFFFFF", "#D9D9D9", "#A6A6A6", "#737373", "#404040", "#000000", "#FF3B3B", "#FF853B", "#FFC61E", "#3BFF3B", "#3B85FF", "#853BFF", "#FF6688", "#FFB677", "#FFED81", "#66FF88", "#66B6FF", "#B677FF", "#C21D1D", "#D96F16", "#BF9012", "#1D921D", "#166FD9", "#6F16D9"];
 
         const googleFonts = fonts.filter(f => !["Arial", "Baskerville", "Georgia", "Helvetica", "Times New Roman"].includes(f));
         const fontUrl = `https://fonts.googleapis.com/css2?family=${googleFonts.map(f => f.replace(/ /g, '+')).join('&family=')}&display=swap`;
@@ -788,7 +811,7 @@
             pendingFileName = name;
 
             const vaultNotes = STORE.get('sn_vault_notes', []);
-            const exists = vaultNotes.some(n => n.title.toLowerCase() === name.toLowerCase());
+            const exists = vaultNotes.find(n => n.title.toLowerCase() === name.toLowerCase() && n.id !== currentLoadedId);
 
             if (exists) {
                 closeModal('save-name-modal');
@@ -806,22 +829,27 @@
         window.replaceExistingNote = () => executeFinalSaveAndExit();
 
         function executeFinalSaveAndExit() {
-            // Using the new Shared Brain logic
             const vaultNotes = STORE.get('sn_vault_notes', []);
-
             const pagesContainer = document.getElementById('pages-container');
+
+            // FIXED: Grabbing the actual raw HTML
+            const fullHTML = pagesContainer.innerHTML;
             let previewContent = pagesContainer.innerText.trim().substring(0, 120);
             if (!previewContent) previewContent = "Empty note...";
             else if (previewContent.length === 120) previewContent += "...";
 
             const now = new Date();
             const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-            const existingIndex = vaultNotes.findIndex(n => n.title.toLowerCase() === pendingFileName.toLowerCase());
+
+            // Check by ID if updating, else check by title
+            let existingIndex = vaultNotes.findIndex(n => n.id === currentLoadedId);
+            if (existingIndex === -1) existingIndex = vaultNotes.findIndex(n => n.title.toLowerCase() === pendingFileName.toLowerCase());
 
             const newNote = {
-                id: Date.now(),
+                id: currentLoadedId || Date.now(),
                 title: pendingFileName,
                 content: previewContent,
+                fullHTML: fullHTML, // Saved!
                 dateStr: dateStr,
                 timestamp: Date.now(),
                 pinned: false,
@@ -837,7 +865,7 @@
                 vaultNotes.push(newNote);
             }
 
-            STORE.set('sn_vault_notes', vaultNotes); // Saves directly to the JSON file!
+            STORE.set('sn_vault_notes', vaultNotes);
             exitToHome();
         }
 
@@ -856,7 +884,21 @@
         function restoreSelection() { if (savedRange) { const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(savedRange); } else { const p = document.querySelectorAll('.word-page'); if (p.length) p[p.length - 1].focus(); } }
         function formatDoc(cmd, val = null) { restoreSelection(); document.execCommand(cmd, false, val); updateToolbarState(); }
         function toggleBlockElement(tag) { restoreSelection(); const currentBlock = document.queryCommandValue('formatBlock'); if (currentBlock && currentBlock.toUpperCase() === tag) { document.execCommand('formatBlock', false, 'P'); } else { document.execCommand('formatBlock', false, tag); } updateToolbarState(); }
-        function applyCustomFontSize(val) { restoreSelection(); document.getElementById('currentSizeLabel').firstElementChild.textContent = val; document.execCommand("fontSize", false, "7"); document.querySelectorAll('font[size="7"]').forEach(tag => { tag.removeAttribute("size"); tag.style.fontSize = val + "px"; tag.style.lineHeight = "1.6"; }); }
+
+        // FIXED: Replaces brittle <font> hack immediately with stable <span>
+        function applyCustomFontSize(val) {
+            restoreSelection();
+            document.getElementById('currentSizeLabel').firstElementChild.textContent = val;
+            document.execCommand("fontSize", false, "7");
+            document.querySelectorAll('font[size="7"]').forEach(tag => {
+                const span = document.createElement('span');
+                span.style.fontSize = val + "px";
+                span.style.lineHeight = "1.6";
+                span.innerHTML = tag.innerHTML;
+                tag.parentNode.replaceChild(span, tag);
+            });
+        }
+
         function applyTextColor(color) { restoreSelection(); document.execCommand('foreColor', false, color); document.getElementById('textColorTrigger').querySelector('i').style.color = color; }
         function applyHiliteColor(color) { restoreSelection(); document.execCommand('hiliteColor', false, color); document.getElementById('hiliteColorTrigger').querySelector('i').style.color = color === 'transparent' ? '#888' : color; }
         function updateToolbarState() { const toggle = (id, cmd) => document.getElementById(id).classList.toggle('active', document.queryCommandState(cmd)); toggle('btn-bold', 'bold'); toggle('btn-italic', 'italic'); toggle('btn-underline', 'underline'); toggle('btn-strike', 'strikeThrough'); toggle('btn-left', 'justifyLeft'); toggle('btn-center', 'justifyCenter'); toggle('btn-right', 'justifyRight'); toggle('btn-justify', 'justifyFull'); toggle('btn-ul', 'insertUnorderedList'); toggle('btn-ol', 'insertOrderedList'); const blockFormat = document.queryCommandValue('formatBlock'); const formatStr = blockFormat ? blockFormat.toLowerCase() : ''; document.getElementById('btn-quote').classList.toggle('active', formatStr === 'blockquote'); document.getElementById('btn-code').classList.toggle('active', formatStr === 'pre'); }
@@ -868,7 +910,6 @@
         window.confirmDeletePage = () => { if (targetPageWrapper) { targetPageWrapper.remove(); targetPageWrapper = null; } closeDeletePopover(); }
         window.closeDeletePopover = () => { document.getElementById('delete-popover').classList.add('hidden'); }
         window.focusEditor = (e) => { if (e.target.id === 'pages-container') { const pages = document.querySelectorAll('.word-page'); if (pages.length) pages[pages.length - 1].focus(); } }
-        window.onload = () => addPage();
     </script>
 </body>
 
